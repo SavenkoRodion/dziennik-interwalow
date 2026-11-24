@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#146348">
+<title>Dziennik interwałów</title>
+<style>
+:root{color-scheme:light dark;--bg:#f3f5f1;--card:#fff;--ink:#17251e;--muted:#4e6055;--line:#aebbb2;--accent:#146348;--on-accent:#fff;--danger:#a52228;--soft:#e2eee7;--focus:#935400}
+@media(prefers-color-scheme:dark){:root{--bg:#101713;--card:#1b251f;--ink:#f4f8f5;--muted:#b8c9bd;--line:#617367;--accent:#8fe0b6;--on-accent:#102c1e;--danger:#ffaaa9;--soft:#293e31;--focus:#ffd17c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,-apple-system,sans-serif}main{max-width:680px;margin:auto;padding:24px 16px max(32px,env(safe-area-inset-bottom))}h1{font-size:1.45rem;margin:0}h2{font-size:1.15rem;margin:0 0 14px}p{margin:8px 0}.eyebrow{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;font-weight:750;color:var(--muted)}.muted,small{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;margin-top:18px}.timer{font-variant-numeric:tabular-nums;font-size:clamp(3.5rem,16vw,5rem);font-weight:750;letter-spacing:-.05em;line-height:1.2;margin:8px 0}.session{font-variant-numeric:tabular-nums}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.row>*{flex:1}.row .fixed{flex:0 0 auto}button,select,textarea{font:inherit;color:inherit}button,select{min-height:48px;border:1px solid var(--line);border-radius:12px;padding:10px 16px;background:var(--card)}button{cursor:pointer;font-weight:650;touch-action:manipulation}button:disabled{opacity:.45;cursor:default}.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}.big{width:100%;min-height:72px;font-size:1.25rem;margin:18px 0 12px}.danger{color:var(--danger)}:focus-visible{outline:3px solid var(--focus);outline-offset:3px}textarea{width:100%;min-height:140px;resize:vertical;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;line-height:1.5}label.check{display:flex;align-items:center;gap:12px;min-height:48px;cursor:pointer}input[type=checkbox]{width:24px;height:24px;accent-color:var(--accent);flex-shrink:0}#editor{border:2px solid var(--accent)}#editor label[for=note]{display:block;font-weight:750;margin:12px 0 8px}#entries{list-style:none;padding:0;margin:0;display:grid;gap:10px}.entry{width:100%;text-align:left;display:block;font-weight:400;padding:16px}.entry-head{display:flex;justify-content:space-between;gap:12px;font-weight:750}.entry-note{display:block;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:6px}.badge{color:var(--danger);font-weight:850}.entry[aria-current=true]{border:2px solid var(--accent);background:var(--soft)}#csv{font:14px/1.5 ui-monospace,monospace;min-height:170px;margin-top:12px;white-space:pre}#message{min-height:26px;margin-top:12px}#storageError{border:2px solid var(--danger);padding:14px;border-radius:12px;margin-top:16px;white-space:pre-wrap}.footer{font-size:.85rem;margin-top:22px}dialog{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:20px;max-width:440px;width:calc(100% - 32px);padding:24px}dialog::backdrop{background:#0009}dialog p{margin:12px 0 20px}[hidden]{display:none!important}header{display:flex;justify-content:space-between;align-items:center;gap:12px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent);margin-right:7px}#runState{font-size:.9rem}.export-label{display:block;font-weight:650;margin-top:12px}@media(max-width:360px){.card{padding:16px}main{padding-inline:12px}.row{gap:8px}button{padding-inline:12px}}
+</style>
+</head>
+<body>
+<main>
+<header><div><div class="eyebrow">Twój rytm dnia</div><h1>Dziennik interwałów</h1></div><span aria-hidden="true">◷</span></header>
+<div id="storageError" role="alert" hidden></div>
+<section class="card" aria-label="Pomiar czasu">
+ <div id="runState">Gotowy do startu</div>
+ <div id="timer" class="timer" aria-label="Czas bieżącego interwału">00:00</div>
+ <div class="session muted">Łącznie w sesji: <strong id="total">00:00</strong></div>
+ <button id="next" class="primary big" disabled>Koniec interwału</button>
+ <div class="row"><button id="start" class="primary">Start</button><button id="stop" disabled>Stop</button></div>
+ <label class="check"><input id="wake" type="checkbox">Nie wygaszaj ekranu</label>
+ <small id="wakeStatus">Pomiar działa także przy wygaszonym ekranie.</small>
+</section>
+<section id="editor" class="card" hidden aria-labelledby="editorTitle">
+ <h2 id="editorTitle">Zamknięty interwał</h2><div id="editorTime" class="muted"></div>
+ <label for="note">Co robiłem?</label><textarea id="note" placeholder="Wpisz lub użyj mikrofonu na klawiaturze Gboard…"></textarea>
+ <label class="check"><input id="blocked" type="checkbox"><strong>! blokada</strong></label>
+ <small>Notatka zapisuje się podczas pisania.</small>
+ <div class="row" style="margin-top:12px"><button id="done">Gotowe</button><button id="delete" class="danger">Usuń wpis</button></div>
+</section>
+<section class="card" aria-labelledby="listTitle"><h2 id="listTitle">Interwały <span id="count" class="muted"></span></h2><p id="empty" class="muted">Zacznij sesję. Tutaj pojawią się zakończone interwały.</p><ul id="entries"></ul></section>
+<section class="card" aria-labelledby="exportTitle"><h2 id="exportTitle">Eksport CSV</h2>
+ <div class="row"><select id="filter" aria-label="Zakres eksportu"><option value="today">Dziś</option><option value="all">Wszystko</option></select><button id="copy" class="primary">Kopiuj eksport</button></div>
+ <label class="export-label" for="csv">Tekst do ręcznego skopiowania</label><textarea id="csv" readonly spellcheck="false" wrap="off"></textarea>
+ <button id="selectCsv" style="margin-top:10px">Zaznacz cały eksport</button>
+ <p class="muted" style="font-size:.85rem">Tylko zakończone interwały. „Dziś” według lokalnej daty rozpoczęcia. Kolumna „koniec” zawiera też datę.</p>
+</section>
+<div id="message" role="status" aria-live="polite"></div>
+<button id="clear" class="danger" style="width:100%;margin-top:12px">Wyczyść wszystko</button>
+<p class="footer muted">Dane zostają w tej przeglądarce. Regularnie kopiuj eksport. Używaj jednej karty aplikacji. Łączny czas dotyczy ostatniej sesji, również po usunięciu jej wpisów.</p>
+</main>
+<dialog id="dialog" aria-labelledby="dialogTitle" aria-describedby="dialogText"><h2 id="dialogTitle"></h2><p id="dialogText"></p><div class="row"><button id="cancelDialog" autofocus>Anuluj</button><button id="confirmDialog" class="danger"></button></div></dialog>
+<script>
+(() => {
+'use strict';
+const KEY = 'dziennik-interwalow-v1';
+const $ = id => document.getElementById(id);
+const fresh = () => ({version:1,session:null,current:null,entries:[],editor:null,wake:false,filter:'today'});
+let state = fresh(), broken = false, wakeLock = null, wakePending = false, confirmation = null, lastDay = '';
+const pad = n => String(n).padStart(2,'0');
+const date = ts => {const d = new Date(ts);return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;};
+const time = ts => {const d = new Date(ts);return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;};
+const duration = ms => {const s = Math.max(0,Math.floor(ms/1000)),m = Math.floor(s/60);return m < 60 ? `${pad(m)}:${pad(s%60)}` : `${Math.floor(m/60)}:${pad(m%60)}:${pad(s%60)}`;};
+const validTime = n => Number.isFinite(n) && n >= 0 && n <= 8640000000000000;
+function validate(s) {
+ if (!s || s.version!==1 || !Array.isArray(s.entries) || typeof s.wake!=='boolean' || !['today','all'].includes(s.filter)) throw Error('format');
+ if (s.session!==null && (!s.session || !validTime(s.session.start) || (s.session.end!==null && (!validTime(s.session.end) || s.session.end<s.session.start)))) throw Error('session');
+ if (s.current!==null && (!s.current || !validTime(s.current.start) || !s.session || s.session.end!==null || s.current.start<s.session.start)) throw Error('current');
+ if (s.session && s.session.end===null && s.current===null) throw Error('active');
+ const ids = new Set();
+ for (const e of s.entries) {if (!e || typeof e.id!=='string' || ids.has(e.id) || !validTime(e.start) || !validTime(e.end) || e.end<e.start || typeof e.note!=='string' || typeof e.blocked!=='boolean') throw Error('entry');ids.add(e.id);}
+ if (s.editor!==null && (typeof s.editor!=='string' || !ids.has(s.editor))) throw Error('editor');
+ return s;
+}
+function storageError(text) {$('storageError').textContent=text;$('storageError').hidden=false;}
+try {const raw=localStorage.getItem(KEY);if(raw!==null) state=validate(JSON.parse(raw));}
+catch(e){broken=true;storageError('Nie można odczytać zapisanych danych. Nie nadpisujemy ich. Spróbuj ponownie otworzyć stronę; „Wyczyść wszystko” pozwala świadomie zacząć od nowa.');}
+function save(){
+ if(broken)return false;
+ try{localStorage.setItem(KEY,JSON.stringify(state));$('storageError').hidden=true;return true;}
+ catch(e){storageError('Nie udało się zapisać zmian w przeglądarce (np. brak miejsca lub zablokowany zapis). Bieżące dane są tylko w pamięci — skopiuj eksport przed zamknięciem strony.');return false;}
+}
+function say(text){$('message').textContent=text;}
+function edited(){return state.entries.find(e=>e.id===state.editor);}
+function span(e){return `${date(e.start)} · ${time(e.start)} – ${date(e.start)!==date(e.end)?date(e.end)+' ':''}${time(e.end)} · ${duration(e.end-e.start)}`;}
+function tick(){
+ const now=Date.now();$('timer').textContent=duration(state.current?now-state.current.start:0);
+ $('total').textContent=duration(state.session?(state.session.end??now)-state.session.start:0);
+ const day=date(now);if(day!==lastDay){lastDay=day;renderExport();}
+}
+function renderExport(){
+ const rows=[['data','start','koniec','minuty','blokada','notatka'].join(',')];
+ const quote=s=>'"'+s.replace(/"/g,'""')+'"';
+ for(const e of state.entries){if(state.filter==='today'&&date(e.start)!==date(Date.now()))continue;rows.push([date(e.start),time(e.start),date(e.end)+' '+time(e.end),((e.end-e.start)/60000).toFixed(1),e.blocked?1:0,quote(e.note)].join(','));}
+ $('csv').value=rows.join('\r\n');
+}
+function entryButton(e){
+ const b=document.createElement('button');b.className='entry';b.type='button';b.dataset.id=e.id;b.setAttribute('aria-current',String(e.id===state.editor));
+ const head=document.createElement('span');head.className='entry-head';
+ const label=document.createElement('span');label.textContent=`${date(e.start)} · ${time(e.start)} – ${date(e.start)!==date(e.end)?date(e.end)+' ':''}${time(e.end)}`;
+ const len=document.createElement('span');len.textContent=duration(e.end-e.start);head.append(label,len);
+ const note=document.createElement('span');note.className='entry-note';note.textContent=e.note||'Dotknij, aby dodać notatkę';
+ b.append(head);if(e.blocked){const badge=document.createElement('span');badge.className='badge';badge.textContent='! blokada';b.append(badge);}b.append(note);return b;
+}
+function renderList(){const frag=document.createDocumentFragment();for(const e of state.entries)frag.append(entryButton(e));$('entries').replaceChildren(frag);$('count').textContent=`(${state.entries.length})`;$('empty').hidden=state.entries.length>0;}
+function renderEditor(focus=false){const e=edited();$('editor').hidden=!e;if(!e)return;$('editorTime').textContent=span(e);$('note').value=e.note;$('blocked').checked=e.blocked;if(focus){$('note').focus();$('editor').scrollIntoView({block:'nearest'});}}
+function render(focus=false){
+ const running=!!state.current;$('start').disabled=running||broken;$('stop').disabled=!running||broken;$('next').disabled=!running||broken;
+ $('start').textContent=state.session?'Nowa sesja':'Start';$('runState').textContent=running?'● Trwa interwał':state.session?'Sesja zakończona':'Gotowy do startu';
+ $('wake').checked=state.wake;$('wake').disabled=broken||!('wakeLock' in navigator);$('filter').value=state.filter;
+ renderList();renderEditor(focus);renderExport();tick();
+}
+function boundary(keepRunning){
+ if(!state.current||broken)return;
+ const now=Math.max(Date.now(),state.current.start);
+ const id=globalThis.crypto?.randomUUID?.()??`${now}-${Math.random().toString(36).slice(2)}`;
+ state.entries.unshift({id,start:state.current.start,end:now,note:'',blocked:false});state.editor=id;
+ state.current=keepRunning?{start:now}:null;if(!keepRunning)state.session.end=now;
+ save();render(true);syncWake();
+}
+$('start').addEventListener('click',()=>{if(state.current||broken)return;const now=Date.now();state.session={start:now,end:null};state.current={start:now};save();render();syncWake();});
+$('next').addEventListener('click',()=>boundary(true));$('stop').addEventListener('click',()=>boundary(false));
+$('note').addEventListener('input',()=>{const e=edited();if(!e)return;e.note=$('note').value;save();const old=Array.from($('entries').children).find(b=>b.dataset.id===e.id);if(old)old.replaceWith(entryButton(e));renderExport();});
+$('blocked').addEventListener('change',()=>{const e=edited();if(!e)return;e.blocked=$('blocked').checked;save();renderList();renderExport();});
+$('done').addEventListener('click',()=>{state.editor=null;save();renderEditor();renderList();$('next').disabled?$('start').focus():$('next').focus();});
+$('entries').addEventListener('click',event=>{const b=event.target.closest('button[data-id]');if(!b)return;state.editor=b.dataset.id;save();renderList();renderEditor(true);});
+$('filter').addEventListener('change',()=>{state.filter=$('filter').value;save();renderExport();});
+function selectCsv(){$('csv').focus();$('csv').select();$('csv').setSelectionRange(0,$('csv').value.length);}
+$('selectCsv').addEventListener('click',selectCsv);
+$('copy').addEventListener('click',async()=>{renderExport();try{await navigator.clipboard.writeText($('csv').value);say('Eksport skopiowany.');}catch(e){selectCsv();say('Skopiuj ręcznie zaznaczony tekst: przytrzymaj go i wybierz „Kopiuj”.');}});
+function ask(title,text,button,action){$('dialogTitle').textContent=title;$('dialogText').textContent=text;$('confirmDialog').textContent=button;confirmation=action;if(!$('dialog').open)$('dialog').showModal();else $('cancelDialog').focus();}
+$('cancelDialog').addEventListener('click',()=>{$('dialog').close();confirmation=null;});
+$('dialog').addEventListener('cancel',()=>{confirmation=null;});
+$('confirmDialog').addEventListener('click',()=>{const action=confirmation;confirmation=null;$('dialog').close();action?.();});
+$('delete').addEventListener('click',()=>{const e=edited();if(!e)return;ask('Usunąć ten wpis?',span(e)+'\nNotatka zostanie usunięta. Pomiar trwającego interwału będzie kontynuowany.','Usuń wpis',()=>{state.entries=state.entries.filter(x=>x.id!==e.id);state.editor=null;save();render();say('Wpis usunięty.');});});
+$('clear').addEventListener('click',()=>ask('Wyczyścić wszystko?','Krok 1 z 2. Usuniesz wszystkie interwały i notatki oraz zatrzymasz pomiar. Najpierw możesz anulować i skopiować eksport.','Dalej',()=>ask('Ostateczne potwierdzenie','Krok 2 z 2. Tego usunięcia nie można cofnąć.','Tak, usuń wszystko',()=>{state=fresh();broken=false;save();render();syncWake();say('Wszystkie dane wyczyszczone.');})));
+async function syncWake(){
+ if(!('wakeLock' in navigator)){$('wakeStatus').textContent='Ta przeglądarka nie obsługuje blokady wygaszania.';return;}
+ if(!state.wake||!state.current||document.visibilityState!=='visible'){
+  if(wakeLock){const old=wakeLock;wakeLock=null;try{await old.release();}catch(e){}}
+  $('wakeStatus').textContent=state.wake?'Blokada ekranu włączy się podczas widocznej, aktywnej sesji.':'Pomiar działa także przy wygaszonym ekranie.';return;
+ }
+ if(wakeLock||wakePending)return;wakePending=true;
+ try{const lock=await navigator.wakeLock.request('screen');wakeLock=lock;lock.addEventListener('release',()=>{if(wakeLock===lock){wakeLock=null;$('wakeStatus').textContent='System zwolnił blokadę ekranu. Pomiar trwa dalej.';}});$('wakeStatus').textContent='Ekran pozostaje włączony podczas sesji.';}
+ catch(e){$('wakeStatus').textContent='Nie udało się zablokować wygaszania. Pomiar działa dalej.';}
+ finally{wakePending=false;if(wakeLock&&(!state.wake||!state.current||document.visibilityState!=='visible'))syncWake();}
+}
+$('wake').addEventListener('change',()=>{state.wake=$('wake').checked;save();syncWake();});
+document.addEventListener('visibilitychange',()=>{tick();syncWake();});window.addEventListener('pageshow',()=>{tick();syncWake();});
+window.addEventListener('storage',event=>{if(event.key!==KEY&&event.key!==null)return;try{state=event.newValue===null?fresh():validate(JSON.parse(event.newValue));broken=false;$('storageError').hidden=true;render();syncWake();say('Wczytano zmianę z drugiej karty. Używaj jednej karty do pomiaru.');}catch(e){broken=true;render();storageError('Dane zmieniły się w innej karcie i nie można ich odczytać. Otwórz stronę ponownie.');}});
+render();syncWake();setInterval(tick,500);
+})();
+</script>
+</body>
+</html>
