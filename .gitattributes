@@ -1,0 +1,4 @@
+index.html text eol=lf
+manifest.webmanifest text eol=lf
+sw.js text eol=lf
+icons/*.png binary

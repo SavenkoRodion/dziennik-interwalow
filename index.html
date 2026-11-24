@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#146348">
+<meta name="theme-color" content="#146348" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101713" media="(prefers-color-scheme: dark)">
+<meta name="app-release" content="31ef8244c7a4c6f6">
+<link rel="manifest" href="./manifest.webmanifest">
 <title>Dziennik interwałów</title>
 <style>
 :root {
@@ -89,6 +92,10 @@ dialog::backdrop { background: #0009; }
 <main>
 <header><h1>Dziennik interwałów</h1></header>
 <div id="storageError" role="alert" hidden></div>
+<div id="appUpdate" class="card" hidden>
+  <p role="status">Nowa wersja gotowa. Zapisz lub skopiuj rozpoczęty import przed aktualizacją.</p>
+  <button id="applyUpdate" class="primary">Zaktualizuj</button>
+</div>
 <div id="backupReminder" class="backup-reminder" hidden><p id="backupReminderText"></p><button id="reminderBackup">Kopiuj backup (JSON)</button></div>
 <section class="card" aria-label="Pomiar czasu">
  <div class="measurement"><div id="runState">Gotowy do startu</div>
@@ -122,7 +129,8 @@ dialog::backdrop { background: #0009; }
  <label class="check"><input id="wake" type="checkbox">Nie wygaszaj ekranu</label>
  <small id="wakeStatus">Pomiar działa także przy wygaszonym ekranie.</small>
 <p id="persistenceStatus" role="status">Sprawdzanie trwałości pamięci…</p><p id="lastBackupStatus" class="muted"></p><small>Trwała pamięć ogranicza automatyczne usuwanie danych przez przeglądarkę. Nadal możesz usunąć je ręcznie.</small>
-<div><button id="clear" class="danger">Wyczyść wszystko</button></div>
+ <p class="muted">Wersja aplikacji <span id="appRelease"></span></p>
+ <div><button id="clear" class="danger">Wyczyść wszystko</button></div>
 </details>
 <div id="message" role="status" aria-live="polite"></div>
 <p class="footer muted">Dane zostają w tej przeglądarce. Regularnie kopiuj eksport. Używaj jednej karty aplikacji. Łączny czas dotyczy ostatniej sesji, również po usunięciu jej wpisów.</p>
@@ -174,11 +182,33 @@ function migrateState(s) {
  return validateV2(s);
 }
 function storageError(text) {$('storageError').textContent=text;$('storageError').hidden=false;}
-try {const raw=localStorage.getItem(KEY);if(raw!==null){const parsed=JSON.parse(raw);state=migrateState(parsed);needsMigrationSave=parsed.schemaVersion!==SCHEMA_VERSION;}}
+let futureData = null;
+function detectFutureData(raw) {
+ if(raw===null)return false;
+ const parsed=JSON.parse(raw);
+ if(!(parsed?.schemaVersion>SCHEMA_VERSION))return false;
+ const firstDetection=futureData===null;
+ futureData={raw,parsed};
+ broken=true;
+ pendingBackupAt=null;
+ $('backupSaved').hidden=true;
+ if(firstDetection){state=fresh();state.filter='all';}
+ storageError('Dane zapisała nowsza wersja dziennika. Zapis jest zablokowany. Możesz skopiować backup JSON lub CSV. Otwórz aktualną wersję aplikacji.');
+ return true;
+}
+try {const raw=localStorage.getItem(KEY);if(raw!==null&&!detectFutureData(raw)){const parsed=JSON.parse(raw);state=migrateState(parsed);needsMigrationSave=parsed.schemaVersion!==SCHEMA_VERSION;}}
 catch(e){broken=true;storageError('Nie można odczytać zapisanych danych. Nie nadpisujemy ich. Spróbuj ponownie otworzyć stronę; „Wyczyść wszystko” pozwala świadomie zacząć od nowa.');}
-function save(nextState=state){
- if(broken)return false;
- try{localStorage.setItem(KEY,JSON.stringify(nextState));$('storageError').hidden=true;return true;}
+function save(nextState=state, reset=false){
+ if(broken&&!reset)return false;
+ try{
+  const raw=localStorage.getItem(KEY);
+  let newer=false;
+  try{newer=detectFutureData(raw);}catch(e){if(!reset)throw e;}
+  if(newer||futureData){
+   render();syncWake();return false;
+  }
+  localStorage.setItem(KEY,JSON.stringify(nextState));$('storageError').hidden=true;return true;
+ }
  catch(e){storageError('Nie udało się zapisać zmian w przeglądarce (np. brak miejsca lub zablokowany zapis). Bieżące dane są tylko w pamięci — skopiuj eksport przed zamknięciem strony.');return false;}
 }
 function say(text){$('message').textContent=text;}
@@ -192,7 +222,12 @@ function tick(){
 function renderExport(){
  const rows=[['data','start','koniec','minuty','blokada','notatka','tag'].join(',')];
  const quote=s=>'"'+s.replace(/"/g,'""')+'"';
- for(const e of state.entries){if(state.filter==='today'&&date(e.start)!==date(Date.now()))continue;rows.push([date(e.start),time(e.start),time(e.end),((e.end-e.start)/60000).toFixed(1),e.blocked?1:0,quote(e.note),quote(e.tag)].join(','));}
+ const entries=futureData?futureData.parsed.entries:state.entries;
+ for(const e of Array.isArray(entries)?entries:[]){
+  if(futureData&&(!e||!validTime(e.start)||!validTime(e.end)||e.end<e.start))continue;
+  if(state.filter==='today'&&date(e.start)!==date(Date.now()))continue;
+  rows.push([date(e.start),time(e.start),time(e.end),((e.end-e.start)/60000).toFixed(1),e.blocked?1:0,quote(typeof e.note==='string'?e.note:''),quote(typeof e.tag==='string'?e.tag:'')].join(','));
+ }
  $('csv').value=rows.join('\r\n');
 }
 const runningTag=Symbol('trwa');
@@ -332,7 +367,8 @@ function renderEditor(focus=false){const e=edited();$('editor').hidden=!e;if(!e)
 function render(focus=false){
  const running=!!state.current;$('start').disabled=running||broken;$('stop').disabled=!running||broken;$('next').disabled=!running||broken;
  for(const button of $('quickNotes').children)button.disabled=!running||broken;
- $('backup').disabled=broken;$('reminderBackup').disabled=broken;$('importBackup').disabled=broken;
+ $('backup').disabled=broken&&!futureData;$('reminderBackup').disabled=broken;$('importBackup').disabled=broken;
+ $('clear').disabled=!!futureData;$('importJson').disabled=!!futureData;
  $('start').textContent=state.session?'Nowa sesja':'Start';$('runState').textContent=running?'● Trwa interwał':state.session?'Sesja zakończona':'Gotowy do startu';
  $('wake').checked=state.wake;$('wake').disabled=broken||!('wakeLock' in navigator);$('filter').value=state.filter;
  renderList();renderEditor(focus);renderExport();tick();
@@ -379,6 +415,12 @@ async function requestPersistentStorage(){
 function selectBackup(){ $('backupPanel').open=true;const field=$('backupJson');field.focus();field.select();field.setSelectionRange(0,field.value.length);}
 function markBackupSaved(at){state.lastBackupAt=Math.max(state.lastBackupAt??0,at);save();renderBackupReminder();}
 async function copyBackup(){
+ if(futureData){
+  $('backupJson').value=futureData.raw;
+  try{await navigator.clipboard.writeText($('backupJson').value);say('Backup JSON skopiowany. Zachowaj go poza aplikacją.');}
+  catch(e){selectBackup();say('Skopiuj ręcznie zaznaczony backup JSON.');}
+  return;
+ }
  if(broken)return;
  const at=Date.now(),source=state;
  // Data w kopii opisuje wykonanie tej kopii. Lokalnie uznajemy ją za zapisaną
@@ -437,7 +479,11 @@ $('cancelDialog').addEventListener('click',()=>{$('dialog').close();confirmation
 $('dialog').addEventListener('cancel',()=>{confirmation=null;});
 $('confirmDialog').addEventListener('click',()=>{const action=confirmation;confirmation=null;$('dialog').close();action?.();});
 $('delete').addEventListener('click',()=>{const e=edited();if(!e)return;ask('Usunąć ten wpis?',span(e)+'\nNotatka zostanie usunięta. Pomiar trwającego interwału będzie kontynuowany.','Usuń wpis',()=>{state.entries=state.entries.filter(x=>x.id!==e.id);state.editor=null;save();render();say('Wpis usunięty.');});});
-$('clear').addEventListener('click',()=>ask('Wyczyścić wszystko?','Krok 1 z 2. Usuniesz wszystkie interwały i notatki oraz zatrzymasz pomiar. Najpierw możesz anulować i skopiować eksport.','Dalej',()=>ask('Ostateczne potwierdzenie','Krok 2 z 2. Tego usunięcia nie można cofnąć.','Tak, usuń wszystko',()=>{state=fresh();broken=false;pendingBackupAt=null;$('backupSaved').hidden=true;save();render();syncWake();say('Wszystkie dane wyczyszczone.');})));
+$('clear').addEventListener('click',()=>ask('Wyczyścić wszystko?','Krok 1 z 2. Usuniesz wszystkie interwały i notatki oraz zatrzymasz pomiar. Najpierw możesz anulować i skopiować eksport.','Dalej',()=>ask('Ostateczne potwierdzenie','Krok 2 z 2. Tego usunięcia nie można cofnąć.','Tak, usuń wszystko',()=>{
+ const empty=fresh();
+ if(!save(empty,true))return;
+ state=empty;broken=false;pendingBackupAt=null;$('backupSaved').hidden=true;render();syncWake();say('Wszystkie dane wyczyszczone.');
+})));
 async function syncWake(){
  if(!('wakeLock' in navigator)){$('wakeStatus').textContent='Ta przeglądarka nie obsługuje blokady wygaszania.';return;}
  if(!state.wake||!state.current||document.visibilityState!=='visible'){
@@ -455,9 +501,58 @@ document.addEventListener('visibilitychange',()=>{
  tick();syncWake();
 });
 window.addEventListener('pageshow',event=>{if(event.persisted && state.current)renderList();tick();syncWake();});
-window.addEventListener('storage',event=>{if(event.key!==KEY&&event.key!==null)return;try{state=event.newValue===null?fresh():migrateState(JSON.parse(event.newValue));pendingBackupAt=null;$('backupSaved').hidden=true;broken=false;$('storageError').hidden=true;render();syncWake();say('Wczytano zmianę z drugiej karty. Używaj jednej karty do pomiaru.');}catch(e){broken=true;render();storageError('Dane zmieniły się w innej karcie i nie można ich odczytać. Otwórz stronę ponownie.');}});
+window.addEventListener('storage',event=>{
+ if(event.key!==KEY&&event.key!==null)return;
+ try{
+  const raw=localStorage.getItem(KEY);
+  if(detectFutureData(raw)){render();syncWake();return;}
+  state=raw===null?fresh():migrateState(JSON.parse(raw));
+  futureData=null;pendingBackupAt=null;$('backupSaved').hidden=true;broken=false;$('storageError').hidden=true;
+  render();syncWake();say('Wczytano zmianę z drugiej karty. Używaj jednej karty do pomiaru.');
+ }catch(e){broken=true;render();storageError('Dane zmieniły się w innej karcie i nie można ich odczytać. Otwórz stronę ponownie.');}
+});
 if(needsMigrationSave)save();
 render();syncWake();requestPersistentStorage();setInterval(tick,500);
+
+$('appRelease').textContent=document.querySelector('meta[name="app-release"]').content;
+if('serviceWorker' in navigator){
+ const serviceWorker=navigator.serviceWorker;
+ serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(registration=>{
+  let requestedWorker=null;
+  function showUpdate(){
+   $('appUpdate').hidden=!registration.waiting;
+   $('applyUpdate').disabled=!!requestedWorker;
+  }
+  function watchInstallation(){
+   registration.installing?.addEventListener('statechange',showUpdate);
+  }
+  const checkForUpdate=()=>registration.update().catch(()=>{});
+  registration.addEventListener('updatefound',watchInstallation);
+  watchInstallation();
+  showUpdate();
+  serviceWorker.addEventListener('controllerchange',()=>{
+   if(requestedWorker&&serviceWorker.controller===requestedWorker)location.reload();
+   else showUpdate();
+  });
+  $('applyUpdate').addEventListener('click',()=>{
+   const waiting=registration.waiting;
+   if(!waiting||requestedWorker)return;
+   const controlled=!!serviceWorker.controller;
+   requestedWorker=waiting;
+   showUpdate();
+   waiting.addEventListener('statechange',()=>{
+    if(waiting.state==='activated'&&!controlled)location.reload();
+    if(waiting.state==='redundant'){requestedWorker=null;showUpdate();}
+   });
+   waiting.postMessage('SKIP_WAITING');
+  });
+  document.addEventListener('visibilitychange',()=>{
+   if(document.visibilityState==='visible')checkForUpdate();
+  });
+  window.addEventListener('online',checkForUpdate);
+  checkForUpdate();
+ }).catch(error=>console.warn('Nie udało się uruchomić obsługi offline.',error));
+}
 })();
 </script>
 </body>
