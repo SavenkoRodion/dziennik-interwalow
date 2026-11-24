@@ -7,71 +7,172 @@
 <meta name="theme-color" content="#146348">
 <title>Dziennik interwałów</title>
 <style>
-:root{color-scheme:light dark;--bg:#f3f5f1;--card:#fff;--ink:#17251e;--muted:#4e6055;--line:#aebbb2;--accent:#146348;--on-accent:#fff;--danger:#a52228;--soft:#e2eee7;--focus:#935400}
-@media(prefers-color-scheme:dark){:root{--bg:#101713;--card:#1b251f;--ink:#f4f8f5;--muted:#b8c9bd;--line:#617367;--accent:#8fe0b6;--on-accent:#102c1e;--danger:#ffaaa9;--soft:#293e31;--focus:#ffd17c}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,-apple-system,sans-serif}main{max-width:680px;margin:auto;padding:24px 16px max(32px,env(safe-area-inset-bottom))}h1{font-size:1.45rem;margin:0}h2{font-size:1.15rem;margin:0 0 14px}p{margin:8px 0}.eyebrow{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;font-weight:750;color:var(--muted)}.muted,small{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;margin-top:18px}.timer{font-variant-numeric:tabular-nums;font-size:clamp(3.5rem,16vw,5rem);font-weight:750;letter-spacing:-.05em;line-height:1.2;margin:8px 0}.session{font-variant-numeric:tabular-nums}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.row>*{flex:1}.row .fixed{flex:0 0 auto}button,select,textarea{font:inherit;color:inherit}button,select{min-height:48px;border:1px solid var(--line);border-radius:12px;padding:10px 16px;background:var(--card)}button{cursor:pointer;font-weight:650;touch-action:manipulation}button:disabled{opacity:.45;cursor:default}.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}.big{width:100%;min-height:72px;font-size:1.25rem;margin:18px 0 12px}.danger{color:var(--danger)}:focus-visible{outline:3px solid var(--focus);outline-offset:3px}textarea{width:100%;min-height:140px;resize:vertical;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;line-height:1.5}label.check{display:flex;align-items:center;gap:12px;min-height:48px;cursor:pointer}input[type=checkbox]{width:24px;height:24px;accent-color:var(--accent);flex-shrink:0}#editor{border:2px solid var(--accent)}#editor label[for=note]{display:block;font-weight:750;margin:12px 0 8px}#entries{list-style:none;padding:0;margin:0;display:grid;gap:10px}.entry{width:100%;text-align:left;display:block;font-weight:400;padding:16px}.entry-head{display:flex;justify-content:space-between;gap:12px;font-weight:750}.entry-note{display:block;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:6px}.badge{color:var(--danger);font-weight:850}.entry[aria-current=true]{border:2px solid var(--accent);background:var(--soft)}#csv{font:14px/1.5 ui-monospace,monospace;min-height:170px;margin-top:12px;white-space:pre}#message{min-height:26px;margin-top:12px}#storageError{border:2px solid var(--danger);padding:14px;border-radius:12px;margin-top:16px;white-space:pre-wrap}.footer{font-size:.85rem;margin-top:22px}dialog{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:20px;max-width:440px;width:calc(100% - 32px);padding:24px}dialog::backdrop{background:#0009}dialog p{margin:12px 0 20px}[hidden]{display:none!important}header{display:flex;justify-content:space-between;align-items:center;gap:12px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent);margin-right:7px}#runState{font-size:.9rem}.export-label{display:block;font-weight:650;margin-top:12px}@media(max-width:360px){.card{padding:16px}main{padding-inline:12px}.row{gap:8px}button{padding-inline:12px}}
+:root {
+  color-scheme: light dark;
+  --bg: #f3f5f1; --card: #fff; --ink: #17251e; --muted: #4e6055;
+  --line: #68786e; --rule: #d5dfd8; --accent: #146348; --on-accent: #fff;
+  --danger: #a52228; --soft: #e2eee7; --focus: #935400;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101713; --card: #1b251f; --ink: #f4f8f5; --muted: #b8c9bd;
+    --line: #617367; --rule: #39483f; --accent: #8fe0b6; --on-accent: #102c1e;
+    --danger: #ffaaa9; --soft: #293e31; --focus: #ffd17c;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); background: var(--bg); font: 1rem/1.375 system-ui, sans-serif; }
+main { display: flex; flex-direction: column; max-width: 680px; min-height: 100dvh; margin: auto; padding: 16px 12px 0; }
+h1, h2 { margin: 0; font-size: 1.25rem; line-height: 1.5rem; }
+h2 { margin-bottom: 8px; }
+p { margin: 8px 0; }
+.card, .backup-reminder { margin-top: 8px; padding: 8px 12px; border-radius: 12px; background: var(--card); }
+.muted, small, .footer { color: var(--muted); }
+small, .session, .footer, .entry-head, .quick-notes { font-size: .875rem; line-height: 1.25rem; }
+.measurement, .entry-head, .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.row > * { flex: 1; }
+.timer, .session, .entry-head { font-variant-numeric: tabular-nums; }
+.timer { font-size: 2rem; line-height: 2.25rem; font-weight: 700; }
+.session { margin: 4px 0 8px; }
+button, select, textarea { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+button, select, summary, .check { min-height: 48px; padding: 8px 12px; }
+button, summary { cursor: pointer; font-weight: 650; touch-action: manipulation; }
+button:disabled { opacity: .5; cursor: default; }
+button:active:enabled { box-shadow: inset 0 0 0 2px currentColor; }
+.primary { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+.danger, .badge { color: var(--danger); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.actions { position: sticky; bottom: 0; z-index: 1; background: var(--card); border-top: 1px solid var(--rule); margin-top: auto; padding: 8px 4px max(8px, env(safe-area-inset-bottom)); }
+.actions:has(#next:disabled) { display: none; }
+main:has(#note:focus) .actions { position: static; }
+.quick-notes { display: grid; grid-template-columns: repeat(5,minmax(48px,1fr)); gap: 8px; }
+.quick-notes button { min-width: 48px; padding-inline: 2px; }
+@media (max-width: 24rem) { .quick-notes { grid-template-columns: repeat(3,minmax(48px,1fr)); } }
+.big { width: 100%; min-height: 56px; margin-top: 8px; }
+summary { padding: 12px 0; }
+textarea { display: block; width: 100%; padding: 8px; resize: vertical; }
+#note { min-height: 3.5rem; }
+.check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent); }
+#editor { border-inline-start: 3px solid var(--accent); }
+#editorTime { font-size: .875rem; }
+main:has(#next:enabled) #runState { color: var(--accent); font-weight: 650; }
+#editor label[for=note], .export-label { display: block; margin: 8px 0 4px; font-weight: 650; }
+.day-heading { font-size: .875rem; margin: 12px 0 4px; color: var(--muted); }
+.entry { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--rule); border-radius: 0; padding: 8px 4px; font-weight: 400; }
+.entry[aria-current=true] { box-shadow: inset 3px 0 var(--accent); padding-inline-start: 8px; background: var(--soft); }
+.entry-head { color: var(--muted); }
+.entry-head strong { color: var(--ink); margin-inline-start: auto; }
+.entry-note { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tag, .badge { display: inline-block; margin: 2px 6px 0 0; font-size: .875rem; font-weight: 650; }
+.tag { border-radius: 4px; padding: 0 5px; color: #000; background: #ddd; overflow-wrap: anywhere; }
+.tag[data-tag="scroll"] { background: #56b4e9; }
+.tag[data-tag="gra"] { background: #cc79a7; }
+.tag[data-tag="posiłek"] { background: #e69f00; }
+.tag[data-tag="drzemka"] { background: #009e73; }
+.tag[data-tag="przerwa"] { background: #d55e00; }
+#csv, #backupJson, #importJson { min-height: 8rem; font: .875rem/1.5 ui-monospace,monospace; }
+#storageError { border: 2px solid var(--danger); padding: 12px; }
+#storageError, #dialogText, #importStatus { white-space: pre-line; }
+dialog { max-width: min(440px,95vw); padding: 16px; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; }
+dialog::backdrop { background: #0009; }
+[hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <main>
-<header><div><div class="eyebrow">Twój rytm dnia</div><h1>Dziennik interwałów</h1></div><span aria-hidden="true">◷</span></header>
+<header><h1>Dziennik interwałów</h1></header>
 <div id="storageError" role="alert" hidden></div>
+<div id="backupReminder" class="backup-reminder" hidden><p id="backupReminderText"></p><button id="reminderBackup">Kopiuj backup (JSON)</button></div>
 <section class="card" aria-label="Pomiar czasu">
- <div id="runState">Gotowy do startu</div>
- <div id="timer" class="timer" aria-label="Czas bieżącego interwału">00:00</div>
+ <div class="measurement"><div id="runState">Gotowy do startu</div>
+ <div id="timer" class="timer" aria-label="Czas bieżącego interwału">00:00</div></div>
  <div class="session muted">Łącznie w sesji: <strong id="total">00:00</strong></div>
- <button id="next" class="primary big" disabled>Koniec interwału</button>
  <div class="row"><button id="start" class="primary">Start</button><button id="stop" disabled>Stop</button></div>
- <label class="check"><input id="wake" type="checkbox">Nie wygaszaj ekranu</label>
- <small id="wakeStatus">Pomiar działa także przy wygaszonym ekranie.</small>
 </section>
 <section id="editor" class="card" hidden aria-labelledby="editorTitle">
  <h2 id="editorTitle">Zamknięty interwał</h2><div id="editorTime" class="muted"></div>
  <label for="note">Co robiłem?</label><textarea id="note" placeholder="Wpisz lub użyj mikrofonu na klawiaturze Gboard…"></textarea>
+ <div class="row" style="margin-top:12px"><button id="done">Gotowe</button><button id="delete" class="danger">Usuń wpis</button></div>
  <label class="check"><input id="blocked" type="checkbox"><strong>! blokada</strong></label>
  <small>Notatka zapisuje się podczas pisania.</small>
- <div class="row" style="margin-top:12px"><button id="done">Gotowe</button><button id="delete" class="danger">Usuń wpis</button></div>
 </section>
-<section class="card" aria-labelledby="listTitle"><h2 id="listTitle">Interwały <span id="count" class="muted"></span></h2><p id="empty" class="muted">Zacznij sesję. Tutaj pojawią się zakończone interwały.</p><ul id="entries"></ul></section>
-<section class="card" aria-labelledby="exportTitle"><h2 id="exportTitle">Eksport CSV</h2>
+<section class="card" aria-labelledby="listTitle"><h2 id="listTitle">Interwały <span id="count" class="muted"></span></h2><p id="empty" class="muted">Zacznij sesję. Tutaj pojawią się zakończone interwały.</p><div id="entries"></div></section>
+<details class="card"><summary>Eksport CSV</summary>
  <div class="row"><select id="filter" aria-label="Zakres eksportu"><option value="today">Dziś</option><option value="all">Wszystko</option></select><button id="copy" class="primary">Kopiuj eksport</button></div>
  <label class="export-label" for="csv">Tekst do ręcznego skopiowania</label><textarea id="csv" readonly spellcheck="false" wrap="off"></textarea>
  <button id="selectCsv" style="margin-top:10px">Zaznacz cały eksport</button>
- <p class="muted" style="font-size:.85rem">Tylko zakończone interwały. „Dziś” według lokalnej daty rozpoczęcia. Kolumna „koniec” zawiera też datę.</p>
-</section>
+ <p class="muted" style="font-size:.85rem">Tylko zakończone interwały. „Dziś” według lokalnej daty rozpoczęcia. Kolumny „start” i „koniec” zawierają tylko godziny. „Tag” pochodzi z szybkiej notatki.</p>
+</details>
+<details id="backupPanel" class="card"><summary>Backup JSON</summary>
+ <button id="backup" class="primary">Kopiuj backup (JSON)</button>
+ <label class="export-label" for="backupJson">Cały stan do ręcznego skopiowania</label><textarea id="backupJson" readonly spellcheck="false" wrap="off" placeholder="Tutaj pojawi się backup JSON."></textarea>
+ <button id="backupSaved" hidden>Potwierdzam zapisanie backupu</button>
+ <p class="muted" style="font-size:.85rem">Zachowaj kopię poza tą aplikacją. Gdy schowek nie zadziała, skopiuj tekst ręcznie i potwierdź zapisanie.</p>
+ <label class="export-label" for="importJson">Wklej backup do importu</label><textarea id="importJson" spellcheck="false" placeholder="Wklej pełny JSON backupu…"></textarea>
+ <button id="importBackup">Importuj backup</button><p id="importStatus" role="status" aria-live="polite"></p>
+</details>
+<details class="card"><summary>Ustawienia i bezpieczeństwo danych</summary>
+ <label class="check"><input id="wake" type="checkbox">Nie wygaszaj ekranu</label>
+ <small id="wakeStatus">Pomiar działa także przy wygaszonym ekranie.</small>
+<p id="persistenceStatus" role="status">Sprawdzanie trwałości pamięci…</p><p id="lastBackupStatus" class="muted"></p><small>Trwała pamięć ogranicza automatyczne usuwanie danych przez przeglądarkę. Nadal możesz usunąć je ręcznie.</small>
+<div><button id="clear" class="danger">Wyczyść wszystko</button></div>
+</details>
 <div id="message" role="status" aria-live="polite"></div>
-<button id="clear" class="danger" style="width:100%;margin-top:12px">Wyczyść wszystko</button>
 <p class="footer muted">Dane zostają w tej przeglądarce. Regularnie kopiuj eksport. Używaj jednej karty aplikacji. Łączny czas dotyczy ostatniej sesji, również po usunięciu jej wpisów.</p>
+<div class="actions">
+ <div id="quickNotes" class="quick-notes" role="group" aria-label="Zakończ interwał z szybką notatką"><button data-tag="scroll" disabled>scroll</button><button data-tag="gra" disabled>gra</button><button data-tag="posiłek" disabled>posiłek</button><button data-tag="drzemka" disabled>drzemka</button><button data-tag="przerwa" disabled>przerwa</button></div>
+ <button id="next" class="primary big" disabled>Koniec interwału</button>
+</div>
 </main>
 <dialog id="dialog" aria-labelledby="dialogTitle" aria-describedby="dialogText"><h2 id="dialogTitle"></h2><p id="dialogText"></p><div class="row"><button id="cancelDialog" autofocus>Anuluj</button><button id="confirmDialog" class="danger"></button></div></dialog>
 <script>
 (() => {
 'use strict';
+// Klucz pozostaje stały; format danych określa schemaVersion.
 const KEY = 'dziennik-interwalow-v1';
+const SCHEMA_VERSION = 2;
+const BACKUP_AGE = 3 * 24 * 60 * 60 * 1000;
 const $ = id => document.getElementById(id);
-const fresh = () => ({version:1,session:null,current:null,entries:[],editor:null,wake:false,filter:'today'});
-let state = fresh(), broken = false, wakeLock = null, wakePending = false, confirmation = null, lastDay = '';
+const fresh = () => ({schemaVersion:SCHEMA_VERSION,session:null,current:null,entries:[],editor:null,wake:false,filter:'today',lastBackupAt:null});
+let state = fresh(), broken = false, wakeLock = null, wakePending = false, confirmation = null, lastDay = '', needsMigrationSave = false, pendingBackupAt = null;
 const pad = n => String(n).padStart(2,'0');
 const date = ts => {const d = new Date(ts);return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;};
 const time = ts => {const d = new Date(ts);return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;};
 const duration = ms => {const s = Math.max(0,Math.floor(ms/1000)),m = Math.floor(s/60);return m < 60 ? `${pad(m)}:${pad(s%60)}` : `${Math.floor(m/60)}:${pad(m%60)}:${pad(s%60)}`;};
 const validTime = n => Number.isFinite(n) && n >= 0 && n <= 8640000000000000;
-function validate(s) {
- if (!s || s.version!==1 || !Array.isArray(s.entries) || typeof s.wake!=='boolean' || !['today','all'].includes(s.filter)) throw Error('format');
- if (s.session!==null && (!s.session || !validTime(s.session.start) || (s.session.end!==null && (!validTime(s.session.end) || s.session.end<s.session.start)))) throw Error('session');
- if (s.current!==null && (!s.current || !validTime(s.current.start) || !s.session || s.session.end!==null || s.current.start<s.session.start)) throw Error('current');
- if (s.session && s.session.end===null && s.current===null) throw Error('active');
+function validateBase(s) {
+ if (!s || typeof s!=='object' || Array.isArray(s) || !Array.isArray(s.entries) || typeof s.wake!=='boolean' || !['today','all'].includes(s.filter)) throw Error('Nieprawidłowa struktura stanu.');
+ if (s.session!==null && (!s.session || !validTime(s.session.start) || (s.session.end!==null && (!validTime(s.session.end) || s.session.end<s.session.start)))) throw Error('Nieprawidłowa sesja.');
+ if (s.current!==null && (!s.current || !validTime(s.current.start) || !s.session || s.session.end!==null || s.current.start<s.session.start)) throw Error('Nieprawidłowy bieżący interwał.');
+ if (s.session && s.session.end===null && s.current===null) throw Error('Brak bieżącego interwału aktywnej sesji.');
  const ids = new Set();
- for (const e of s.entries) {if (!e || typeof e.id!=='string' || ids.has(e.id) || !validTime(e.start) || !validTime(e.end) || e.end<e.start || typeof e.note!=='string' || typeof e.blocked!=='boolean') throw Error('entry');ids.add(e.id);}
- if (s.editor!==null && (typeof s.editor!=='string' || !ids.has(s.editor))) throw Error('editor');
+ for (const e of s.entries) {if (!e || typeof e.id!=='string' || !e.id || ids.has(e.id) || !validTime(e.start) || !validTime(e.end) || e.end<e.start || typeof e.note!=='string' || typeof e.blocked!=='boolean') throw Error('Nieprawidłowy interwał lub powtórzony identyfikator.');ids.add(e.id);}
+ if (s.editor!==null && (typeof s.editor!=='string' || !ids.has(s.editor))) throw Error('Nieprawidłowy edytowany wpis.');
  return s;
 }
+function validateV1(s) {validateBase(s);return s;}
+// Każda kolejna migracja ma osobną funkcję i zachowuje pozostałe pola.
+function migrateV1ToV2(s) {
+ return {...s,schemaVersion:2,entries:s.entries.map(e=>({...e,tag:e.tag??''})),lastBackupAt:s.lastBackupAt??null};
+}
+function validateV2(s) {
+ validateBase(s);
+ if(s.schemaVersion!==SCHEMA_VERSION || (s.lastBackupAt!==null&&!validTime(s.lastBackupAt)) || s.entries.some(e=>typeof e.tag!=='string')) throw Error('Nieprawidłowe dane wersji 2.');
+ return s;
+}
+function migrateState(s) {
+ let version=s?.schemaVersion??s?.version;
+ if(version===1){validateV1(s);s=migrateV1ToV2(s);version=2;}
+ if(version!==SCHEMA_VERSION)throw Error('Nieobsługiwana wersja danych. Nie zmieniono lokalnych danych.');
+ return validateV2(s);
+}
 function storageError(text) {$('storageError').textContent=text;$('storageError').hidden=false;}
-try {const raw=localStorage.getItem(KEY);if(raw!==null) state=validate(JSON.parse(raw));}
+try {const raw=localStorage.getItem(KEY);if(raw!==null){const parsed=JSON.parse(raw);state=migrateState(parsed);needsMigrationSave=parsed.schemaVersion!==SCHEMA_VERSION;}}
 catch(e){broken=true;storageError('Nie można odczytać zapisanych danych. Nie nadpisujemy ich. Spróbuj ponownie otworzyć stronę; „Wyczyść wszystko” pozwala świadomie zacząć od nowa.');}
-function save(){
+function save(nextState=state){
  if(broken)return false;
- try{localStorage.setItem(KEY,JSON.stringify(state));$('storageError').hidden=true;return true;}
+ try{localStorage.setItem(KEY,JSON.stringify(nextState));$('storageError').hidden=true;return true;}
  catch(e){storageError('Nie udało się zapisać zmian w przeglądarce (np. brak miejsca lub zablokowany zapis). Bieżące dane są tylko w pamięci — skopiuj eksport przed zamknięciem strony.');return false;}
 }
 function say(text){$('message').textContent=text;}
@@ -80,40 +181,66 @@ function span(e){return `${date(e.start)} · ${time(e.start)} – ${date(e.start
 function tick(){
  const now=Date.now();$('timer').textContent=duration(state.current?now-state.current.start:0);
  $('total').textContent=duration(state.session?(state.session.end??now)-state.session.start:0);
- const day=date(now);if(day!==lastDay){lastDay=day;renderExport();}
+ const day=date(now);if(day!==lastDay){lastDay=day;renderList();renderExport();}renderBackupReminder();
 }
 function renderExport(){
- const rows=[['data','start','koniec','minuty','blokada','notatka'].join(',')];
+ const rows=[['data','start','koniec','minuty','blokada','notatka','tag'].join(',')];
  const quote=s=>'"'+s.replace(/"/g,'""')+'"';
- for(const e of state.entries){if(state.filter==='today'&&date(e.start)!==date(Date.now()))continue;rows.push([date(e.start),time(e.start),date(e.end)+' '+time(e.end),((e.end-e.start)/60000).toFixed(1),e.blocked?1:0,quote(e.note)].join(','));}
+ for(const e of state.entries){if(state.filter==='today'&&date(e.start)!==date(Date.now()))continue;rows.push([date(e.start),time(e.start),time(e.end),((e.end-e.start)/60000).toFixed(1),e.blocked?1:0,quote(e.note),quote(e.tag)].join(','));}
  $('csv').value=rows.join('\r\n');
 }
 function entryButton(e){
  const b=document.createElement('button');b.className='entry';b.type='button';b.dataset.id=e.id;b.setAttribute('aria-current',String(e.id===state.editor));
  const head=document.createElement('span');head.className='entry-head';
- const label=document.createElement('span');label.textContent=`${date(e.start)} · ${time(e.start)} – ${date(e.start)!==date(e.end)?date(e.end)+' ':''}${time(e.end)}`;
- const len=document.createElement('span');len.textContent=duration(e.end-e.start);head.append(label,len);
- const note=document.createElement('span');note.className='entry-note';note.textContent=e.note||'Dotknij, aby dodać notatkę';
- b.append(head);if(e.blocked){const badge=document.createElement('span');badge.className='badge';badge.textContent='! blokada';b.append(badge);}b.append(note);return b;
+ const label=document.createElement('span');
+ const crossesMidnight = date(e.start) !== date(e.end);
+ label.textContent = crossesMidnight ? `${date(e.start)} ${time(e.start)} – ${date(e.end)} ${time(e.end)}` : `${time(e.start)} – ${time(e.end)}`;
+ const len=document.createElement('strong');len.textContent=duration(e.end-e.start);head.append(label,len);
+ b.append(head);
+ if(e.tag){
+  const tag=document.createElement('span');tag.className='tag';tag.dataset.tag=e.tag;tag.textContent=e.tag;b.append(tag);
+ }
+ if(e.blocked){const badge=document.createElement('span');badge.className='badge';badge.textContent='! blokada';b.append(badge);}
+ if(e.note!==e.tag || !e.tag){
+  const note=document.createElement('span');note.className='entry-note';note.textContent=e.note||'Dotknij, aby dodać notatkę';b.append(note);
+ }
+ return b;
 }
-function renderList(){const frag=document.createDocumentFragment();for(const e of state.entries)frag.append(entryButton(e));$('entries').replaceChildren(frag);$('count').textContent=`(${state.entries.length})`;$('empty').hidden=state.entries.length>0;}
+function renderList(){
+ const frag=document.createDocumentFragment();
+ const today=date(Date.now());
+ let previousDay='';
+ for(const entry of state.entries){
+  const day=date(entry.start);
+  if(day!==previousDay){
+   const heading=document.createElement('h3');heading.className='day-heading';heading.textContent=day===today?'Dzisiaj':day;
+   frag.append(heading);previousDay=day;
+  }
+  frag.append(entryButton(entry));
+ }
+ $('entries').replaceChildren(frag);$('count').textContent=`(${state.entries.length})`;$('empty').hidden=state.entries.length>0;
+}
 function renderEditor(focus=false){const e=edited();$('editor').hidden=!e;if(!e)return;$('editorTime').textContent=span(e);$('note').value=e.note;$('blocked').checked=e.blocked;if(focus){$('note').focus();$('editor').scrollIntoView({block:'nearest'});}}
 function render(focus=false){
  const running=!!state.current;$('start').disabled=running||broken;$('stop').disabled=!running||broken;$('next').disabled=!running||broken;
+ for(const button of $('quickNotes').children)button.disabled=!running||broken;
+ $('backup').disabled=broken;$('reminderBackup').disabled=broken;$('importBackup').disabled=broken;
  $('start').textContent=state.session?'Nowa sesja':'Start';$('runState').textContent=running?'● Trwa interwał':state.session?'Sesja zakończona':'Gotowy do startu';
  $('wake').checked=state.wake;$('wake').disabled=broken||!('wakeLock' in navigator);$('filter').value=state.filter;
  renderList();renderEditor(focus);renderExport();tick();
 }
-function boundary(keepRunning){
+function boundary(keepRunning,tag=''){
  if(!state.current||broken)return;
  const now=Math.max(Date.now(),state.current.start);
  const id=globalThis.crypto?.randomUUID?.()??`${now}-${Math.random().toString(36).slice(2)}`;
- state.entries.unshift({id,start:state.current.start,end:now,note:'',blocked:false});state.editor=id;
+ state.entries.unshift({id,start:state.current.start,end:now,note:tag,blocked:false,tag});state.editor=id;
  state.current=keepRunning?{start:now}:null;if(!keepRunning)state.session.end=now;
- save();render(true);syncWake();
+ save();render(!tag);syncWake();
 }
 $('start').addEventListener('click',()=>{if(state.current||broken)return;const now=Date.now();state.session={start:now,end:null};state.current={start:now};save();render();syncWake();});
-$('next').addEventListener('click',()=>boundary(true));$('stop').addEventListener('click',()=>boundary(false));
+$('next').addEventListener('click',()=>boundary(true));
+$('quickNotes').addEventListener('click',event=>{const button=event.target.closest('button[data-tag]');if(button&&!button.disabled)boundary(true,button.dataset.tag);});
+$('stop').addEventListener('click',()=>boundary(false));
 $('note').addEventListener('input',()=>{const e=edited();if(!e)return;e.note=$('note').value;save();const old=Array.from($('entries').children).find(b=>b.dataset.id===e.id);if(old)old.replaceWith(entryButton(e));renderExport();});
 $('blocked').addEventListener('change',()=>{const e=edited();if(!e)return;e.blocked=$('blocked').checked;save();renderList();renderExport();});
 $('done').addEventListener('click',()=>{state.editor=null;save();renderEditor();renderList();$('next').disabled?$('start').focus():$('next').focus();});
@@ -122,12 +249,82 @@ $('filter').addEventListener('change',()=>{state.filter=$('filter').value;save()
 function selectCsv(){$('csv').focus();$('csv').select();$('csv').setSelectionRange(0,$('csv').value.length);}
 $('selectCsv').addEventListener('click',selectCsv);
 $('copy').addEventListener('click',async()=>{renderExport();try{await navigator.clipboard.writeText($('csv').value);say('Eksport skopiowany.');}catch(e){selectCsv();say('Skopiuj ręcznie zaznaczony tekst: przytrzymaj go i wybierz „Kopiuj”.');}});
+function renderBackupReminder(){
+ const overdue=state.lastBackupAt===null||Date.now()-state.lastBackupAt>BACKUP_AGE;
+ $('backupReminder').hidden=broken||!overdue;
+ $('backupReminderText').textContent=state.lastBackupAt===null?'Nie masz jeszcze backupu. Możesz zapisać kopię swoich danych.':'Ostatni backup ma ponad 3 dni. Warto zapisać nową kopię.';
+ $('lastBackupStatus').textContent=state.lastBackupAt===null?'Ostatni backup: jeszcze nie zapisano.':'Ostatni backup: '+date(state.lastBackupAt)+' '+time(state.lastBackupAt);
+}
+async function requestPersistentStorage(){
+ try{
+  if(!navigator.storage?.persist){$('persistenceStatus').textContent='Trwała pamięć: przeglądarka nie obsługuje tej funkcji.';return;}
+  const granted=await navigator.storage.persist();
+  const persistent=navigator.storage.persisted?await navigator.storage.persisted():granted;
+  $('persistenceStatus').textContent=persistent?'Trwała pamięć: tak.':'Trwała pamięć: nie — przeglądarka nie przyznała ochrony. Regularnie zapisuj backup.';
+ }catch(e){$('persistenceStatus').textContent='Trwała pamięć: nie udało się sprawdzić ani uzyskać ochrony. Dane nadal zapisują się w localStorage.';}
+}
+function selectBackup(){ $('backupPanel').open=true;const field=$('backupJson');field.focus();field.select();field.setSelectionRange(0,field.value.length);}
+function markBackupSaved(at){state.lastBackupAt=Math.max(state.lastBackupAt??0,at);save();renderBackupReminder();}
+async function copyBackup(){
+ if(broken)return;
+ const at=Date.now(),source=state;
+ // Data w kopii opisuje wykonanie tej kopii. Lokalnie uznajemy ją za zapisaną
+ // dopiero po sukcesie schowka lub ręcznym potwierdzeniu użytkownika.
+ const snapshot={...state,lastBackupAt:at};
+ $('backupJson').value=JSON.stringify(snapshot,null,2);pendingBackupAt=at;
+ $('backupSaved').hidden=true;
+ try{
+  await navigator.clipboard.writeText($('backupJson').value);
+  // Nie oznaczaj innego stanu, np. wyczyszczonego podczas oczekiwania na schowek.
+  if(state===source){markBackupSaved(at);pendingBackupAt=null;}
+  say('Backup JSON skopiowany. Zachowaj go poza aplikacją.');
+ }catch(e){
+  if(state===source){$('backupSaved').hidden=false;selectBackup();}
+  say('Nie udało się skopiować automatycznie. Skopiuj ręcznie JSON i potwierdź zapisanie backupu.');
+ }
+}
+$('backup').addEventListener('click',copyBackup);
+$('reminderBackup').addEventListener('click',copyBackup);
+$('backupSaved').addEventListener('click',()=>{if(pendingBackupAt===null)return;markBackupSaved(pendingBackupAt);pendingBackupAt=null;$('backupSaved').hidden=true;say('Zapisanie backupu potwierdzone.');});
+function importPlan(incoming){
+ const restore=state.entries.length===0&&state.session===null&&state.current===null;
+ const existing=new Map(state.entries.map(e=>[e.id,e]));
+ let added=0,common=0,conflicts=0;
+ for(const e of incoming.entries){const local=existing.get(e.id);if(!local)added++;else{common++;if(JSON.stringify(local)!==JSON.stringify(e))conflicts++;}}
+ const merged=restore?incoming:{...state,entries:[...state.entries,...incoming.entries.filter(e=>!existing.has(e.id))].sort((a,b)=>b.start-a.start||b.end-a.end||a.id.localeCompare(b.id))};
+ const timestamps=[];for(const e of incoming.entries)timestamps.push(e.start,e.end);if(incoming.session)timestamps.push(incoming.session.start,incoming.session.end??incoming.current.start);
+ let first=null,last=null;for(const ts of timestamps){first=first===null?ts:Math.min(first,ts);last=last===null?ts:Math.max(last,ts);}
+ const range=first===null?'brak dat':date(first)+' '+time(first)+' — '+date(last)+' '+time(last);
+ const summary='Interwały w backupie: '+incoming.entries.length+'. Nowe: '+added+'. Wspólne ID: '+common+'.'+
+  '\nZakres dat: '+range+'.'+
+  (conflicts?'\nRóżniące się wpisy ze wspólnym ID: '+conflicts+'. Zachowamy lokalną wersję.':'')+
+  (restore?'\nPusta aplikacja: przywrócimy cały stan, także ustawienia i trwający pomiar.':'\nScalimy zakończone interwały. Bieżąca sesja, ustawienia i edytowana notatka pozostaną lokalne.')+
+  (!restore&&incoming.current?'\nBackup zawiera trwający pomiar. Nie zastąpi on lokalnej sesji; odtworzysz go przez import do pustej aplikacji.':'');
+ return {next:validateV2(merged),summary,added};
+}
+function previewImport(incoming){
+ const plan=importPlan(incoming),baseline=JSON.stringify(state);
+ $('importStatus').textContent=plan.summary;
+ ask('Importować backup?',plan.summary,'Scal dane',()=>{
+  if(JSON.stringify(state)!==baseline){say('Dane zmieniły się podczas podglądu. Sprawdź aktualne podsumowanie.');previewImport(incoming);return;}
+  // Najpierw trwały zapis, dopiero potem podmiana stanu w pamięci.
+  if(!save(plan.next)){$('importStatus').textContent='Import nie został zapisany. Dotychczasowy stan pozostaje bez zmian.';return;}
+  state=plan.next;pendingBackupAt=null;$('backupSaved').hidden=true;
+  render();syncWake();$('importStatus').textContent='Import zakończony. Dodano interwałów: '+plan.added+'. Łącznie: '+state.entries.length+'.';
+  say('Backup zaimportowany.');
+ });
+}
+$('importBackup').addEventListener('click',()=>{
+ if(broken)return;
+ try{const incoming=migrateState(JSON.parse($('importJson').value));previewImport(incoming);}
+ catch(e){$('importStatus').textContent='Nie można zaimportować backupu: '+e.message;}
+});
 function ask(title,text,button,action){$('dialogTitle').textContent=title;$('dialogText').textContent=text;$('confirmDialog').textContent=button;confirmation=action;if(!$('dialog').open)$('dialog').showModal();else $('cancelDialog').focus();}
 $('cancelDialog').addEventListener('click',()=>{$('dialog').close();confirmation=null;});
 $('dialog').addEventListener('cancel',()=>{confirmation=null;});
 $('confirmDialog').addEventListener('click',()=>{const action=confirmation;confirmation=null;$('dialog').close();action?.();});
 $('delete').addEventListener('click',()=>{const e=edited();if(!e)return;ask('Usunąć ten wpis?',span(e)+'\nNotatka zostanie usunięta. Pomiar trwającego interwału będzie kontynuowany.','Usuń wpis',()=>{state.entries=state.entries.filter(x=>x.id!==e.id);state.editor=null;save();render();say('Wpis usunięty.');});});
-$('clear').addEventListener('click',()=>ask('Wyczyścić wszystko?','Krok 1 z 2. Usuniesz wszystkie interwały i notatki oraz zatrzymasz pomiar. Najpierw możesz anulować i skopiować eksport.','Dalej',()=>ask('Ostateczne potwierdzenie','Krok 2 z 2. Tego usunięcia nie można cofnąć.','Tak, usuń wszystko',()=>{state=fresh();broken=false;save();render();syncWake();say('Wszystkie dane wyczyszczone.');})));
+$('clear').addEventListener('click',()=>ask('Wyczyścić wszystko?','Krok 1 z 2. Usuniesz wszystkie interwały i notatki oraz zatrzymasz pomiar. Najpierw możesz anulować i skopiować eksport.','Dalej',()=>ask('Ostateczne potwierdzenie','Krok 2 z 2. Tego usunięcia nie można cofnąć.','Tak, usuń wszystko',()=>{state=fresh();broken=false;pendingBackupAt=null;$('backupSaved').hidden=true;save();render();syncWake();say('Wszystkie dane wyczyszczone.');})));
 async function syncWake(){
  if(!('wakeLock' in navigator)){$('wakeStatus').textContent='Ta przeglądarka nie obsługuje blokady wygaszania.';return;}
  if(!state.wake||!state.current||document.visibilityState!=='visible'){
@@ -141,8 +338,9 @@ async function syncWake(){
 }
 $('wake').addEventListener('change',()=>{state.wake=$('wake').checked;save();syncWake();});
 document.addEventListener('visibilitychange',()=>{tick();syncWake();});window.addEventListener('pageshow',()=>{tick();syncWake();});
-window.addEventListener('storage',event=>{if(event.key!==KEY&&event.key!==null)return;try{state=event.newValue===null?fresh():validate(JSON.parse(event.newValue));broken=false;$('storageError').hidden=true;render();syncWake();say('Wczytano zmianę z drugiej karty. Używaj jednej karty do pomiaru.');}catch(e){broken=true;render();storageError('Dane zmieniły się w innej karcie i nie można ich odczytać. Otwórz stronę ponownie.');}});
-render();syncWake();setInterval(tick,500);
+window.addEventListener('storage',event=>{if(event.key!==KEY&&event.key!==null)return;try{state=event.newValue===null?fresh():migrateState(JSON.parse(event.newValue));pendingBackupAt=null;$('backupSaved').hidden=true;broken=false;$('storageError').hidden=true;render();syncWake();say('Wczytano zmianę z drugiej karty. Używaj jednej karty do pomiaru.');}catch(e){broken=true;render();storageError('Dane zmieniły się w innej karcie i nie można ich odczytać. Otwórz stronę ponownie.');}});
+if(needsMigrationSave)save();
+render();syncWake();requestPersistentStorage();setInterval(tick,500);
 })();
 </script>
 </body>
