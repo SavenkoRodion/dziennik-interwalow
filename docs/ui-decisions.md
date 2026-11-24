@@ -99,3 +99,43 @@ Minimum WCAG, zalecenie Androida i pomiar w milimetrach mają różne cele i jed
 - Dodaj manifest standalone, ikony PNG i obsługę offline pod obecną ścieżką.
 - Wersjonuj zestaw offline skrótem plików, pokazuj wersję w ustawieniach i aktywuj aktualizację na żądanie.
 - Zablokuj zapis nowszego schematu w starszym wydaniu z dostępem do backupu JSON i CSV.
+
+## Iteracja 4b — uproszczenie
+
+„Dziennik interwałów” jest jedynym nagłówkiem głównego ekranu, bo identyfikuje aplikację, a daty i sumy opisują historię. Licznik jest widoczny w obu stanach. Dolny przycisk o wysokości co najmniej 56 CSS px zmienia etykietę ze „Start” na „Koniec interwału”. „Zatrzymaj pomiar” znajduje się przy liczniku i jest dostępne podczas pomiaru. Cele dotykowe mają co najmniej 48 CSS px. Po zamknięciu interwału fokus przechodzi do notatki, a panel dolny odpina się przez CSS na czas jej fokusu.
+
+Karty z commita `fac5bde` są wzorem historii. Pogrubione godziny i długość są w pierwszym wierszu, notatka poniżej. Zachowujemy rozwijane lokalne dni, sumę „Zapisano”, importowane tagi i oznaczenia blokady, długiego wpisu oraz przejścia przez północ. Bieżący wpis i suma jego dnia aktualizują się podczas pomiaru. Podsumowanie według tagów, licznik wpisów i najdłuższy odcinek usunięto z widoku.
+
+„Ustawienia i dane” zawierają pełną kopię JSON, przywracanie, datę kopii, status trwałej pamięci, wersję i „Wyczyść wszystko”. Nad historią pojawia się jedna neutralna linia, gdy nie ma kopii lub ma ona **ponad 7 dni**. Link rozwija ustawienia i przewija do „Kopiuj dane”. Przy odmowie dostępu do schowka pojawia się pole ręcznego kopiowania. Ochrona nowszego schematu pozostawia surową kopię JSON do odczytu. Klucz, schemat, migracje, reguły walidacji i scalania oraz pola `session`, `tag`, `filter` i `wake` są zachowane. Interfejs pomija CSV i przełącznik wygaszania ekranu.
+
+| Rola | Jasny | Ciemny |
+|---|---|---|
+| Tło / powierzchnia | `#F4F4F4` / `#FFFFFF` | `#121212` / `#1C1C1C` |
+| Tekst główny / drugorzędny | `#171717` / `#555555` | `#F5F5F5` / `#B8B8B8` |
+| Obrys kontrolki / separator dekoracyjny | `#707070` / `#D4D4D4` | `#888888` / `#3B3B3B` |
+| Tło tagu | `#EAEAEA` | `#303030` |
+| Akcent / tekst na nim | `#366BCD` / `#FFFFFF` | `#366BCD` / `#FFFFFF` |
+
+`--accent` steruje tłem głównego przycisku i kropką „Trwa”. Kontrast białej etykiety na niebieskim tle wynosi 5,07:1, a akcentu względem powierzchni w jasnym i ciemnym motywie odpowiednio 5,07:1 i 3,36:1. Najniższy kontrast spośród użytych par zwykłego tekstu wynosi 5,07:1. Obrysy kontrolek mają co najmniej 4,50:1 względem tła lub powierzchni. Manifest ma neutralne `#F4F4F4` dla obu kolorów startowych, a HTML dostosowuje kolor motywu do systemu.
+
+Neutralne powierzchnie realizują role z Material Design 3. Oszczędne użycie koloru i spójne oznaczenie stanu tekstem odpowiadają wskazówkom HIG. Usunięcie zbędnych kontroli oraz zwinięcie ustawień odpowiada zasadzie minimalistycznego projektu NN/G. Progi kontrastu wynoszą 4,5:1 dla zwykłego tekstu oraz 3:1 dla informacji potrzebnej do rozpoznania kontrolki lub stanu. [Material Design 3](https://m3.material.io/styles/color/the-color-system/), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/color), [NN/G](https://www.nngroup.com/articles/usability-heuristics-complex-applications/), [WCAG 1.4.3](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum), [WCAG 1.4.11](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast).
+
+Przed publikacją uruchom `python tools/stamp_release.py` i opublikuj razem HTML, manifest oraz worker. Skrypt odświeża identyfikator wydania i sumy kontrolne, a logika aktywacji po naciśnięciu „Zaktualizuj” pozostaje taka jak w iteracji 4.
+
+### Testy ręczne na Realme 8 5G
+
+1. Zapisz kopię z obecnej wersji poza dziennikiem. Zanotuj treść przykładowego wpisu z tagiem i stan pomiaru. Po udostępnieniu wydania wróć do zainstalowanej PWA, użyj „Zaktualizuj” i sprawdź wersję, historię, etykiety oraz ciągłość pomiaru na tym samym adresie. Potem otwórz aplikację z ikony w trybie samolotowym.
+2. Jedną ręką przejdź od „Start” przez kilka kolejnych „Koniec interwału”. Sprawdź, czy każde dotknięcie zamyka jeden wpis i od razu uruchamia następny. W jednym wpisie pomiń notatkę, w innym wpisz tekst i użyj „Gotowe”. Zatrzymaj pomiar obok licznika. Sprawdź powrót do „Start” i widoczne `00:00`.
+3. Otwórz i zwiń dzień. Sprawdź, czy bez szukania widać dzisiejszą sumę, pierwsze wpisy i przycisk pomiaru. W długiej historii sprawdź dostępność przycisku u dołu, a przy otwartym Gboard sprawdź, czy pole notatki i „Gotowe” są osiągalne. Obejrzyj oba motywy, większy tekst i wpis przechodzący przez północ.
+4. W profilu testowym bez danych lub z kopią starszą niż 7 dni dotknij przypomnienia i sprawdź, czy odsłania „Kopiuj dane”. Skopiuj JSON do schowka, a następnie w osobnym pustym profilu przywróć go przez „Przywróć z kopii”. Porównaj wpisy, tagi, notatki i stan pomiaru. Powtórz import i sprawdź, czy nie dodaje duplikatów. Przy niedostępnym schowku sprawdź pole ręcznego kopiowania.
+5. W osobnym profilu testowym ustaw `schemaVersion` na 999. Sprawdź blokadę pomiaru, przywracania i czyszczenia oraz możliwość skopiowania niezmienionej kopii.
+
+Sprawdzono w Chrome przy 360 × 780 CSS px: oba motywy, dotyk, przejście z poprzedniej wersji z zachowaniem danych, pracę offline, dokładny próg przypomnienia, przywrócenie bez duplikatów i blokadę nowszego schematu. Schowek symulowano w obu wariantach. Testy z Gboard i zainstalowaną aplikacją na Realme pozostają do wykonania.
+
+### Opis commita
+
+`Uprość pomiar i przywróć karty historii interwałów`
+
+- Ujednolić start i koniec interwału w jednej dolnej akcji oraz zachować osobne zatrzymanie pomiaru.
+- Przywrócić karty wpisów i neutralne motywy z pojedynczym akcentem.
+- Zebrać kopiowanie i przywracanie w ustawieniach, przypominać o kopii po siedmiu dniach i ostemplować nowe wydanie offline.

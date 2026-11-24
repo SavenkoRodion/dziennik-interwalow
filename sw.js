@@ -1,8 +1,8 @@
 'use strict';
 
 // tools/stamp_release.py owns these two lines.
-const RELEASE = '31ef8244c7a4c6f6';
-const OFFLINE_INTEGRITY = {"index.html": "sha256-MgojsK2sC1h6KSaDOKc/N/3BzfVSW/dj8M7zimRocl4=", "manifest.webmanifest": "sha256-Q54TAvnEUisg2Q1djub3m2odMMY7aGCpgRLwW1bEw5s=", "icons/icon-192.png": "sha256-1bF/NceCm17VrSqD4K1krKsPrQvxsP2zlc4iphOcmKc=", "icons/icon-512.png": "sha256-uFcbbVpMplhx5XznwBIEidVtR+2+l13npjlTpuvl1J8=", "icons/maskable-512.png": "sha256-0SID54QHlZ3js4BrIjsAKjTqD8OCdXCz9LhLkyWJbqM="};
+const RELEASE = 'e4a05500a9f367f8';
+const OFFLINE_INTEGRITY = {"index.html": "sha256-8vOQnj1P6lXW0nH4OXQ0Xm68hSlrdryCtfNgklkfcY8=", "manifest.webmanifest": "sha256-/Y6AZjzj8V9APXYtA7Hy65l49W5QWjggxF0DojYhYog=", "icons/icon-192.png": "sha256-1bF/NceCm17VrSqD4K1krKsPrQvxsP2zlc4iphOcmKc=", "icons/icon-512.png": "sha256-uFcbbVpMplhx5XznwBIEidVtR+2+l13npjlTpuvl1J8=", "icons/maskable-512.png": "sha256-0SID54QHlZ3js4BrIjsAKjTqD8OCdXCz9LhLkyWJbqM="};
 
 const scope = new URL(self.registration.scope);
 const cachePrefix = 'dziennik-interwalow:' + scope.pathname + ':';
