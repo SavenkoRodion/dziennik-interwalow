@@ -3,6 +3,8 @@ import {pad, date, time, duration, midnight, groupDays} from './time.js';
 
 const BACKUP_AGE = 7 * 24 * 60 * 60 * 1000;
 const $ = id => document.getElementById(id);
+export let desktop=false;
+export function setDesktop(value){desktop=value;}
 let confirmation = null, lastDay = '';
 
 function storageError(text) {$('storageError').textContent=text;$('storageError').hidden=false;}
@@ -11,7 +13,7 @@ function edited(){return state.entries.find(e=>e.id===state.editor);}
 function span(e){return `${date(e.start)} · ${time(e.start)} – ${date(e.start)!==date(e.end)?date(e.end)+' ':''}${time(e.end)} · ${duration(e.end-e.start)}`;}
 function tick(){
  const now=Date.now();
- $('timer').textContent=duration(state.current?now-state.current.start:0);
+ $('timer').textContent=duration(!desktop&&state.current?now-state.current.start:0);
  const day=date(now);
  if(day!==lastDay){lastDay=day;renderList(now);}
  if(liveDay){
@@ -39,8 +41,8 @@ function minutesText(minutes){
 }
 function entryRow(part){
  const {entry,start,stop,end,running,live}=part;
- const row=element(running?'div':'button',null,'entry');
- if(!running){
+ const row=element(running||desktop?'div':'button',null,'entry');
+ if(!running&&!desktop){
   row.type='button';row.dataset.id=entry.id;row.disabled=broken;
   visibleParts.set(row,part);
   row.setAttribute('aria-current',String(entry.id===state.editor));
@@ -51,7 +53,7 @@ function entryRow(part){
  head.append(element('span',time(start).slice(0,5)+' – '+until),length);
  row.append(head);
  if(!running&&(entry.note!==entry.tag||!entry.tag)){
-  row.append(element('span',entry.note||'Dotknij, aby dodać notatkę',entry.note?'entry-note':'entry-note muted'));
+  row.append(element('span',entry.note||(desktop?'Bez notatki':'Dotknij, aby dodać notatkę'),entry.note?'entry-note':'entry-note muted'));
  }
  const meta=element('span',null,'entry-meta');
  if(running)meta.append(element('span','Trwa','run-state'));
@@ -76,7 +78,9 @@ function dayContents(day){
 }
 function renderList(now=Date.now()){
  for(const old of $('entries').querySelectorAll('details[data-day]'))dayChoices.set(Number(old.dataset.day),old.open);
- const days=groupDays(state, now), fragment=document.createDocumentFragment();
+ const query=$('searchHistory').value.trim().toLocaleLowerCase('pl');
+ const visible=desktop?{current:null,entries:state.entries.filter(entry=>(entry.note+' '+entry.tag).toLocaleLowerCase('pl').includes(query))}:state;
+ const days=groupDays(visible, now), fragment=document.createDocumentFragment();
  const today=midnight(now);
  const defaultDay=days.some(d=>d.key===today)?today:days[0]?.key;
  let newer=null;
@@ -110,10 +114,19 @@ function renderList(now=Date.now()){
  $('entries').replaceChildren(fragment);
  $('empty').hidden=days.length>0;
 }
-function renderEditor(focus=false){const e=edited();$('editor').hidden=!e;if(!e)return;$('editorTime').textContent=span(e);$('note').value=e.note;$('blocked').checked=e.blocked;if(focus){$('note').focus();$('editor').scrollIntoView({block:'nearest'});}}
+function renderEditor(focus=false){const e=!desktop&&edited();$('editor').hidden=!e;if(!e)return;$('editorTime').textContent=span(e);$('note').value=e.note;$('blocked').checked=e.blocked;if(focus){$('note').focus();$('editor').scrollIntoView({block:'nearest'});}}
 function render(focus=false){
- const running=!!state.current;
- $('measure').disabled=broken;
+ const running=!desktop&&!!state.current;
+ document.body.classList.toggle('desktop',desktop);
+ $('atlas').hidden=!desktop;
+ $('atlasCount').textContent='Zapisane interwały: '+state.entries.length;
+ const transfer=state.localTransfer, snapshot=transfer?.snapshot;
+ $('snapshot').textContent=snapshot ? (snapshot.current?'W chwili eksportu trwał interwał rozpoczęty '+new Date(snapshot.current.start).toLocaleString('pl-PL')+'.':'W chwili eksportu pomiar był zatrzymany.') : '';
+ $('lastImport').textContent=transfer?.lastImportAt?'Ostatni import: '+new Date(transfer.lastImportAt).toLocaleString('pl-PL'):'Brak trwałego importu.';
+ $('sendFile').disabled=$('downloadFile').disabled=broken&&!futureData;
+ $('role').disabled=broken;
+ $('measure').hidden=desktop;
+ $('measure').disabled=broken||desktop;
  $('measure').textContent=running?'Koniec interwału':'Start';
  $('stop').hidden=!running||broken;
  $('runState').hidden=!running;
@@ -129,7 +142,7 @@ function render(focus=false){
 function renderBackupReminder(now=Date.now()){
  const last=state.lastBackupAt;
  const reminder=$('backupReminder');
- reminder.hidden=broken||(last!==null&&now-last<=BACKUP_AGE);
+ reminder.hidden=desktop||broken||(last!==null&&now-last<=BACKUP_AGE);
  reminder.textContent=last===null?'Brak kopii danych':'Ostatnia kopia ma ponad 7 dni';
  $('lastBackupStatus').textContent=last===null?'Ostatnia kopia: brak.':'Ostatnia kopia: '+date(last)+' '+time(last);
 }

@@ -1,9 +1,10 @@
 import {SCHEMA_VERSION, fresh, migrateState} from './migration.js';
-import {EVENTS_KEY, clearMetrics, recordMetric} from './metrics.js';
+import {EVENTS_KEY, clearMetrics, recordMetric, suspendMetrics} from './metrics.js';
 
 // Klucz pozostaje stały; format danych określa schemaVersion.
-const KEY = 'dziennik-interwalow-v1';
-let state = fresh(), broken = false, needsMigrationSave = false, reportedFutureSchema = false;
+import {KEY} from './recovery.js';
+let loadedRaw=null;
+let state = fresh(), broken = false, needsMigrationSave = false;
 let effects;
 
 let futureData = null;
@@ -14,10 +15,9 @@ function detectFutureData(raw) {
  const firstDetection=futureData===null;
  futureData={raw,parsed};
  broken=true;
- effects.onFutureData();
+ suspendMetrics(true);effects.onFutureData();
  if(firstDetection){
   state=fresh();state.filter='all';
-  if(!reportedFutureSchema){reportedFutureSchema=true;recordMetric('error','future_schema');}
  }
  effects.showError('Dane zapisała nowsza wersja dziennika. Zapis jest zablokowany. Możesz użyć „Kopiuj dane” w ustawieniach. Otwórz aktualną wersję aplikacji.');
  return true;
@@ -26,6 +26,7 @@ function initializeStorage(callbacks){
  effects=callbacks;
  try{
   const raw=localStorage.getItem(KEY);
+  loadedRaw=raw;
   if(raw===null||detectFutureData(raw))return;
   const parsed=JSON.parse(raw);
   state=migrateState(parsed);
@@ -45,6 +46,9 @@ function save(nextState=state, reset=false){
   if(newer||futureData){
    effects.onBlockedSave();return false;
   }
+  if(raw!==loadedRaw){
+   effects.showError('Dane zmieniły się w innej karcie. Odśwież widok przed zapisem.');return false;
+  }
   const serialized=JSON.stringify(nextState);
   try{localStorage.setItem(KEY,serialized);}
   catch(error){
@@ -53,7 +57,7 @@ function save(nextState=state, reset=false){
    clearMetrics();
    localStorage.setItem(KEY,serialized);
   }
-  effects.clearError();return true;
+  loadedRaw=serialized;effects.clearError();return true;
  }
  catch(e){recordMetric('error','state_write');effects.showError('Nie udało się zapisać zmian w przeglądarce (np. brak miejsca lub zablokowany zapis). Bieżące dane są tylko w pamięci — skopiuj dane przed zamknięciem strony.');return false;}
 }
@@ -61,7 +65,7 @@ function readStorageChange(){
  const raw=localStorage.getItem(KEY);
  if(detectFutureData(raw))return false;
  state=raw===null?fresh():migrateState(JSON.parse(raw));
- futureData=null;
+ loadedRaw=raw;futureData=null;suspendMetrics(false);
  return true;
 }
 
@@ -70,3 +74,19 @@ function setBroken(value){broken=value;}
 
 export {KEY, state, broken, needsMigrationSave, futureData, initializeStorage, save,
  readStorageChange, replaceState, setBroken};
+
+export async function withWriteLock(action){
+ const run=()=>{
+  try{
+   if(localStorage.getItem(KEY)!==loadedRaw){
+    if(readStorageChange())broken=false;
+    effects.onBlockedSave();
+    effects.showError('Wczytano zmianę z innej karty. Sprawdź dane i powtórz czynność.');
+    return;
+   }
+   return action();
+  }catch(error){effects.showError('Nie udało się wykonać zapisu. '+error.message);}
+ };
+ // Bez Web Locks pomiar nadal działa; spójność zapisu pilnuje porównanie z loadedRaw w save().
+ return navigator.locks?navigator.locks.request(KEY,run):run();
+}

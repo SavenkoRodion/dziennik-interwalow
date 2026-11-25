@@ -1,8 +1,11 @@
-import {encodeBackup, decodeBackup, importPlan} from './exchange.js';
+import {setupTransfer,backupText} from './transfer-ui.js';
+import {loadDevice,changeRole} from './device.js';
+import {setDesktop,desktop} from './presentation.js';
+import {withWriteLock} from './storage.js';
 import {fresh} from './migration.js';
-import {EVENTS_KEY, metricSnapshot, recordMetric, clearMetrics, discardPendingMetrics,
+import {EVENTS_KEY, recordMetric, clearMetrics, discardPendingMetrics,
  localStorageEventMatchesRemoval, noteMetric, beginNoteMetric, updateNoteMetric, finishNoteMetric,
- trackVisibility, hideMetrics, queueImportedMetrics} from './metrics.js';
+ trackVisibility, hideMetrics} from './metrics.js';
 import {$, storageError, clearStorageError, say, edited, span, tick, renderList,
  renderEditor, render, renderBackupReminder, ask, updateEntryRows} from './presentation.js';
 import {KEY, state, broken, needsMigrationSave, futureData, initializeStorage, save,
@@ -18,6 +21,20 @@ initializeStorage({
  onBlockedSave(){render();syncWake();}
 });
 
+let device;
+try{
+ device=loadDevice(!broken);setDesktop(device.role==='desktop');$('role').value=device.role;
+}catch(error){setBroken(true);storageError('Nie można odczytać ustawień urządzenia. '+error.message);}
+$('role').onchange=()=>withWriteLock(()=>{
+ if(broken)return;
+ if(state.current&&!desktop){$('role').value=device.role;say('Zatrzymaj pomiar przed zmianą trybu.');return;}
+ changeRole(device,$('role').value);
+});
+$('dataLink').onclick=()=>{$('backupPanel').open=true;};
+$('searchHistory').oninput=()=>renderList();
+function onEdit(id,event,handler){
+ $(id).addEventListener(event,e=>withWriteLock(()=>{if(!broken&&!desktop)handler(e);}));
+}
 function boundary(keepRunning){
  if(!state.current||broken)return;
  const endedAt=performance.now();
@@ -28,29 +45,29 @@ function boundary(keepRunning){
  save();render(true);syncWake();
  if(!broken)beginNoteMetric(id,endedAt);
 }
-$('measure').addEventListener('click',()=>{
+onEdit('measure','click',()=>{
  if(broken)return;
  if(state.current){boundary(true);return;}
  const now=Date.now();
  state.session={start:now,end:null};state.current={start:now};
  save();render();syncWake();
 });
-$('stop').addEventListener('click',()=>{if(state.current&&!broken){boundary(false);recordMetric('action','stop');}});
-$('note').addEventListener('input',()=>{
+onEdit('stop','click',()=>{if(state.current&&!broken){boundary(false);recordMetric('action','stop');}});
+onEdit('note','input',()=>{
  const e=edited();if(!e||broken)return;
  const inputAt=performance.now();
  e.note=$('note').value;save();
  if(!broken)updateNoteMetric(e.id,e.note,inputAt);
  updateEntryRows(e);
 });
-$('blocked').addEventListener('change',()=>{const e=edited();if(!e||broken)return;e.blocked=$('blocked').checked;save();renderList();});
-$('done').addEventListener('click',()=>{
+onEdit('blocked','change',()=>{const e=edited();if(!e||broken)return;e.blocked=$('blocked').checked;save();renderList();});
+onEdit('done','click',()=>{
  if(broken)return;
  finishNoteMetric('done');
  state.editor=null;save();renderEditor();renderList();
  $('measure').focus({preventScroll:true});
 });
-$('entries').addEventListener('click',event=>{
+onEdit('entries','click',event=>{
  const b=event.target.closest('button[data-id]');if(!b||broken)return;
  finishNoteMetric('replaced');
  recordMetric('action','edit');
@@ -78,23 +95,26 @@ function markBackupSaved(at){state.lastBackupAt=Math.max(state.lastBackupAt??0,a
 async function copyBackup(){
  const status=$('backupStatus');
  $('manualBackup').hidden=true;
- if(futureData||!broken)recordMetric('action','copy');
+ if(!broken)recordMetric('action','copy');
  if(futureData){
-  $('backupJson').value=futureData.raw;
+  let archive;
+  try{archive=backupText();}catch(error){status.textContent=error.message;return;}
+  $('backupJson').value=archive.text;
   try{await navigator.clipboard.writeText($('backupJson').value);status.textContent='Dane skopiowane. Zachowaj kopię poza aplikacją.';}
-  catch(e){recordMetric('error','clipboard');selectBackup();status.textContent='Skopiuj ręcznie zaznaczoną kopię.';}
+  catch(e){selectBackup();status.textContent='Skopiuj ręcznie zaznaczoną kopię.';}
+  if(archive.warning)status.textContent+=' Kopia niepełna. '+archive.warning;
   return;
  }
  if(broken)return;
  const at=Date.now(),source=state;
  // Data w kopii opisuje wykonanie tej kopii. Lokalnie uznajemy ją za zapisaną
  // dopiero po sukcesie schowka lub ręcznym potwierdzeniu użytkownika.
- $('backupJson').value=encodeBackup(state,at,metricSnapshot());pendingBackupAt=at;
+ $('backupJson').value=backupText(at).text;pendingBackupAt=at;
  $('backupSaved').hidden=true;
  try{
   await navigator.clipboard.writeText($('backupJson').value);
   // Nie oznaczaj innego stanu, np. wyczyszczonego podczas oczekiwania na schowek.
-  if(state===source){markBackupSaved(at);pendingBackupAt=null;}
+  await withWriteLock(()=>{if(state===source){markBackupSaved(at);pendingBackupAt=null;}});
   status.textContent='Dane skopiowane. Zachowaj kopię poza aplikacją.';
  }catch(e){
   recordMetric('error','clipboard');
@@ -103,40 +123,22 @@ async function copyBackup(){
  }
 }
 $('backup').addEventListener('click',copyBackup);
-$('backupSaved').addEventListener('click',()=>{if(pendingBackupAt===null)return;markBackupSaved(pendingBackupAt);pendingBackupAt=null;$('backupSaved').hidden=true;$('manualBackup').hidden=true;$('backupStatus').textContent='Zapisanie kopii potwierdzone.';});
-function previewImport(incoming, events){
- const plan=importPlan(state,incoming),baseline=JSON.stringify(state);
- $('importStatus').textContent=plan.summary;
- ask('Przywrócić dane z kopii?',plan.summary,'Potwierdź przywrócenie',()=>{
-  if(JSON.stringify(state)!==baseline){$('importStatus').textContent='Dane zmieniły się podczas podglądu. Sprawdź aktualne podsumowanie.';previewImport(incoming,events);return;}
-  // Najpierw trwały zapis, dopiero potem podmiana stanu w pamięci.
-  recordMetric('action','restore');
-  if(!save(plan.next)){$('importStatus').textContent='Import nie został zapisany. Dotychczasowy stan pozostaje bez zmian.';return;}
-  finishNoteMetric('replaced');
-  queueImportedMetrics(events);
-  replaceState(plan.next);pendingBackupAt=null;$('backupSaved').hidden=true;$('manualBackup').hidden=true;
-  render();syncWake();$('importStatus').textContent='Import zakończony. Dodano interwałów: '+plan.added+'. Łącznie: '+state.entries.length+'.';
- });
-}
-$('importBackup').addEventListener('click',()=>{
- if(broken)return;
- try{
-  const {incoming,events}=decodeBackup($('importJson').value);
-  previewImport(incoming,events);
- }
- catch(e){$('importStatus').textContent='Nie można przywrócić kopii: '+e.message;}
+$('backupSaved').addEventListener('click',()=>withWriteLock(()=>{if(pendingBackupAt===null)return;markBackupSaved(pendingBackupAt);pendingBackupAt=null;$('backupSaved').hidden=true;$('manualBackup').hidden=true;$('backupStatus').textContent='Zapisanie kopii potwierdzone.';}));
+const closeReview=setupTransfer(()=>{
+ finishNoteMetric('replaced');pendingBackupAt=null;$('backupSaved').hidden=true;$('manualBackup').hidden=true;
+ render();syncWake();
 });
-$('delete').addEventListener('click',()=>{const e=edited();if(!e)return;ask('Usunąć ten wpis?',span(e)+'\nNotatka zostanie usunięta. Pomiar trwającego interwału będzie kontynuowany.','Usuń wpis',()=>{finishNoteMetric('replaced');recordMetric('action','delete');state.entries=state.entries.filter(x=>x.id!==e.id);state.editor=null;save();render();say('Wpis usunięty.');});});
-$('clear').addEventListener('click',()=>ask('Wyczyścić wszystko?','Krok 1 z 2. Usuniesz wszystkie interwały i notatki oraz zatrzymasz pomiar. Najpierw możesz anulować i skopiować dane.','Dalej',()=>ask('Ostateczne potwierdzenie','Krok 2 z 2. Tego usunięcia nie można cofnąć.','Tak, usuń wszystko',()=>{
+onEdit('delete','click',()=>{const e=edited();if(!e)return;ask('Usunąć ten wpis?',span(e)+'\nNotatka zostanie usunięta. Pomiar trwającego interwału będzie kontynuowany.','Usuń wpis',()=>withWriteLock(()=>{if(edited()!==e||broken||desktop)return;finishNoteMetric('replaced');recordMetric('action','delete');state.localTransfer??={};(state.localTransfer.deleted??=[]).push(e.id);state.entries=state.entries.filter(x=>x.id!==e.id);state.editor=null;save();render();say('Wpis usunięty.');}));});
+$('clear').addEventListener('click',()=>ask('Wyczyścić wszystko?','Krok 1 z 2. Usuniesz wszystkie interwały i notatki oraz zatrzymasz pomiar. Najpierw możesz anulować i skopiować dane.','Dalej',()=>ask('Ostateczne potwierdzenie','Krok 2 z 2. Tego usunięcia nie można cofnąć.','Tak, usuń wszystko',()=>withWriteLock(()=>{
  const empty=fresh();
  if(!save(empty,true))return;
  clearMetrics();
  replaceState(empty);setBroken(false);pendingBackupAt=null;$('backupSaved').hidden=true;$('manualBackup').hidden=true;
- render();syncWake();$('backupStatus').textContent='Wszystkie dane wyczyszczone.';
-})));
+ render();syncWake();$('backupStatus').textContent='Wszystkie dane wyczyszczone.';closeReview();
+}))));
 async function syncWake(){
  if(!('wakeLock' in navigator))return;
- if(!state.wake||!state.current||document.visibilityState!=='visible'){
+ if(desktop||!state.wake||!state.current||document.visibilityState!=='visible'){
   if(wakeLock){const old=wakeLock;wakeLock=null;try{await old.release();}catch(e){}}
   return;
  }
@@ -151,6 +153,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',event=>{if(event.persisted && state.current)renderList();tick();syncWake();});
 window.addEventListener('storage',event=>{
+ if(event.key==='dziennik-interwalow-device-v1'){location.reload();return;}
  if(event.key===EVENTS_KEY||event.key===null){
   if(event.newValue===null&&localStorageEventMatchesRemoval())discardPendingMetrics();
   if(event.key===EVENTS_KEY)return;
@@ -166,8 +169,8 @@ window.addEventListener('storage',event=>{
 document.addEventListener('visibilitychange',trackVisibility);
 window.addEventListener('pageshow',trackVisibility);
 window.addEventListener('pagehide',hideMetrics);
-if(needsMigrationSave)save();
+if(needsMigrationSave)withWriteLock(()=>save());
 trackVisibility();
-render();syncWake();requestPersistentStorage();setInterval(tick,500);
+render();syncWake();requestPersistentStorage();if(!desktop)setInterval(tick,500);
 
 registerUpdates();

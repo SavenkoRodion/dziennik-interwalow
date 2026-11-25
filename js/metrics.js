@@ -13,6 +13,11 @@ let pendingImports = [];
 let metricTimer = null, noteMetric = null;
 let wasVisible = false, hasBeenVisible = false;
 
+let suspended=false;
+export function suspendMetrics(value){
+ suspended=value;
+ if(value)discardPendingMetrics();
+}
 function newMetric(type){
  const at=Date.now();
  const id=globalThis.crypto?.randomUUID?.()??
@@ -111,6 +116,7 @@ function flushMetrics(){
  }
 }
 function queueMetric(event){
+ if(suspended)return;
  pendingMetrics.set(event.id,{event,imported:false});
  if(pendingMetrics.size>MAX_EVENTS)pendingMetrics.delete(pendingMetrics.keys().next().value);
  if(metricTimer===null)metricTimer=setTimeout(flushMetrics,800);

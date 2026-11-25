@@ -80,3 +80,19 @@ input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--ink); }
 dialog { max-width: min(440px,95vw); padding: 16px; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; }
 dialog::backdrop { background: #0009; }
 [hidden] { display: none !important; }
+
+.desktop .measurement,.desktop .actions { display:none; }
+#atlas nav { display:flex; flex-wrap:wrap; gap:1rem; }
+#atlas nav a { display:inline-flex; align-items:center; color:var(--ink); }
+#atlas input, select { font:inherit; padding:8px; max-width:100%; }
+#review { margin-bottom:16px; }
+#review fieldset { margin:12px 0; min-width:0; }
+#review pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+#sessionView { max-width:min(720px,95vw); max-height:85dvh; }
+#sessionEntries { max-height:52vh; overflow:auto; }
+@media (min-width:900px) {
+ .desktop main { max-width:1120px; }
+ #atlas { display:grid; grid-template-columns:9rem minmax(0,1fr) 14rem; gap:20px; align-items:start; }
+ #atlas nav { flex-direction:column; gap:0; }
+ .desktop #history { margin-left:calc(9rem + 20px); }
+}
