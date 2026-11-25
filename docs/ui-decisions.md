@@ -139,3 +139,46 @@ Sprawdzono w Chrome przy 360 × 780 CSS px: oba motywy, dotyk, przejście z popr
 - Ujednolić start i koniec interwału w jednej dolnej akcji oraz zachować osobne zatrzymanie pomiaru.
 - Przywrócić karty wpisów i neutralne motywy z pojedynczym akcentem.
 - Zebrać kopiowanie i przywracanie w ustawieniach, przypominać o kopii po siedmiu dniach i ostemplować nowe wydanie offline.
+
+## Iteracja 5 — lokalny dziennik użycia
+
+**KONWENCJA.** Główny stan nadal jest pod kluczem `dziennik-interwalow-v1`. Zapis v3 aktualizuje numer schematu. V1 przechodzi najpierw przez migrację do v2. Lokalny dziennik zdarzeń ma osobny klucz `dziennik-interwalow-events-v1`. Kopia v3 ma dodatkową tablicę `events`. Starszy import zachowuje metryki lokalne. V3 scala poprawne zdarzenia po ID, po udanym zapisie stanu głównego. Import powtórzony dwa razy tworzy dwa zdarzenia użycia przywracania i zachowuje po jednym rekordzie każdego importowanego ID. W nowszym schemacie działa surowy eksport dotychczasowej kopii. „Wyczyść wszystko” usuwa metryki z pamięci i z localStorage.
+
+| Typ | Co mierzy |
+|---|---|
+| `visible` | Pierwsze pokazanie dokumentu i powrót z ukrycia, wraz z trybem `standalone`, `browser` lub `other`. Przeładowanie tworzy nowy dokument. |
+| `note` | Czas od zamknięcia interwału do pierwszej i ostatniej zmiany pola, liczbę punktów kodowych Unicode i przyczynę końca obserwacji. Raport używa domkniętych prób `done` i `replaced`. |
+| `action` | Zatrzymanie pomiaru, otwarcie edycji z historii, potwierdzenie usunięcia, żądanie kopii, potwierdzenie importu i żądanie aktualizacji workera. |
+| `error` | Obserwowany błąd głównego zapisu, schowka, rejestracji workera albo wykrycie nowszego schematu. Surowy eksport z tej wersji zachowuje oryginalne bajty. |
+
+**Moja ocena.** Bufor utrzymuje maksymalnie 2000 rekordów i 300 000 bajtów zwartej serializacji JSON, łącznie z nawiasami i przecinkami. Walidowane wartości są ASCII, więc liczba jednostek kodowych serializacji jest równa rozmiarowi w UTF-8. Udział w limicie przeglądarki zależy od sposobu naliczania miejsca. Zapis wypiera najstarsze rekordy. Po scaleniu importu porządek między kopiami opiera się na zapisanym czasie. Przycisk dokłada rekord w pamięci. Zapis odbywa się po ok. 800 ms od rozpoczęcia partii, przy `hidden` lub `pagehide`. Awaria zapisu porzuca partię bez komunikatu i ponowienia. Przy braku miejsca na główne dane aplikacja zwalnia miejsce zajęte przez dziennik i ponawia główny zapis. [MDN Storage quotas and eviction criteria](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria)
+
+**FAKT.** `performance.now()` jest monotoniczny, a przeglądarki różnią się zachowaniem podczas uśpienia. Zegar monotoniczny mierzy zwłokę wpisywania w widocznym dokumencie. `Date.now()` i przesunięcie UTC służą do dat i godzin. Przy ręcznej zmianie zegara dodatnia luka między dokumentami może wyglądać jak przerwa. Nagłe zakończenie procesu może utracić partię, a odtworzony dokument da nowe otwarcie. [MDN Performance.now](https://developer.mozilla.org/en-US/docs/Web/API/Performance/now), [MDN visibilitychange](https://developer.mozilla.org/en-US/docs/Web/API/Document/visibilitychange_event), [MDN display-mode](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/display-mode)
+
+### Czego NIE zrobię
+
+- Na użytek metryk aplikacja nie dodaje elementów UI, zasobów, ruchu sieciowego ani nasłuchu dotknięć.
+- Dziennik nie zawiera tekstu użytkownika, kopiowanych treści, identyfikatorów wpisów ani komunikatów wyjątków. Pełna kopia nadal zawiera notatki potrzebne do przywracania.
+- Manifest i logika instalacji, cache, offline oraz aktywacji aktualizacji pozostają jak wcześniej. Skrypt wydania przelicza znaczniki i sumy offline.
+
+### Czytanie kopii
+
+`python tools/summarize_metrics.py backup.json` czyta plik. `Get-Clipboard -Raw | python tools/summarize_metrics.py -` czyta JSON przekazany przez PowerShell na stdin. Do analizy można wkleić wynik skryptu. Przerwy dotyczą zarejestrowanych śladów użycia. Liczba granic pomiaru z wpisów jest przybliżeniem obejmującym Stop oraz wnioskowane starty. Raport podaje mianowniki i zakres danych.
+
+### Testy ręczne
+
+1. W osobnym profilu zapisz kopię v2 z trwającym pomiarem i notatką. Otwórz nowe wydanie. Sprawdź, że v3 zachował pomiar, wpis, znacznik blokady i notatkę. Zaimportuj kopie v1 i v2, a v3 przywróć dwa razy. Porównaj tablice wpisów i ID zdarzeń. Kolejne potwierdzenie importu ma własne zdarzenie `restore`.
+2. Po zakończeniu interwału wpisz `TAJNA-NOTATKA😀`, dotknij „Gotowe” i skopiuj dane. W JSON znajdź tekst w `entries[].note` i sprawdź, że wyszukanie go w `JSON.stringify(kopia.events)` nic nie zwróci. Rekord `note` powinien mieć `chars: 14`, dwie wartości czasu i `end: "done"`.
+3. Zaimportuj kopię v3 z 2005 poprawnymi zdarzeniami o różnych ID. Po sekundzie sprawdź w DevTools `localStorage.getItem('dziennik-interwalow-events-v1')`. Odczytana tablica ma najwyżej 2000 rekordów, a `new TextEncoder().encode(raw).length` ma najwyżej 300 000. Najstarsze ID wypadają. Użyj „Wyczyść wszystko” w tym samym profilu i sprawdź, że klucz zdarzeń zniknął.
+4. W konsoli profilu testowego podstaw `Storage.prototype.setItem`, które rzuca `QuotaExceededError` wyłącznie dla klucza zdarzeń. Zamknij interwał i odczekaj sekundę. Nowy wpis jest w głównym kluczu, nie ma komunikatu o błędzie metryk. Odśwież stronę, żeby przywrócić oryginalną metodę.
+5. Porównaj ekran poprzedniej i nowej wersji z tymi samymi danymi w 360 × 780 CSS px. Na Androidzie uruchom z ikony, wróć z tła, otwórz też kartę Chrome i porównaj `visible` w kopii. Zainstaluj wydanie, włącz tryb samolotowy, uruchom z ikony i zamknij interwał z notatką. Sprawdź aktualizację przyciskiem po kolejnym wydaniu.
+
+W Chrome headless sprawdzono migrację aktywnego pomiaru, import v1/v2/v3, brak duplikatów importowanych ID, prywatność metryk, oba limity, czyszczenie, pierwszeństwo zapisu głównego, eksport nowszego schematu, tryb offline i zgodność układu kontrolek w 360 × 780 CSS px. Test limitu bajtów zatrzymał się na 299 981 bajtach i 1911 rekordach. Powrót z ukrycia i błąd schowka były symulowane. Instalacja, uśpienie, Gboard i aktualizacja przyciskiem na Realme pozostają do sprawdzenia.
+
+### Opis commita
+
+`Dodaj lokalny dziennik użycia i kopie v3`
+
+- Zbieraj lokalnie otwarcia, pierwsze edycje notatek, rzadkie akcje i błędy w ograniczonym buforze.
+- Scalaj dziennik z kopią v3 i zachowaj import v1 oraz v2.
+- Dodaj podsumowanie sześciu pytań z pliku lub stdin i odśwież wydanie offline.
