@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = (
     "index.html",
     "manifest.webmanifest",
+    "styles.css",
     "icons/icon-192.png",
     "icons/icon-512.png",
     "icons/maskable-512.png",
@@ -32,8 +33,11 @@ def sha256(data):
 
 
 def main():
-    files = {name: (ROOT / name).read_bytes() for name in FILES}
-    for name in ("index.html", "manifest.webmanifest"):
+    # Keep browser modules under js/ so the release includes their full import graph.
+    modules = sorted(path.relative_to(ROOT).as_posix() for path in (ROOT / "js").rglob("*.js"))
+    files = {name: (ROOT / name).read_bytes() for name in (*FILES, *modules)}
+    text_files = ("index.html", "manifest.webmanifest", "styles.css", *modules)
+    for name in text_files:
         files[name] = files[name].replace(b"\r\n", b"\n")
     html = replace_marker(HTML_MARKER, rb"\g<1>unstamped\g<2>", files["index.html"])
     files["index.html"] = html
@@ -59,7 +63,7 @@ def main():
         WORKER_INTEGRITY, f"const OFFLINE_INTEGRITY = {json.dumps(integrity)};".encode(), worker
     )
 
-    for name in ("index.html", "manifest.webmanifest"):
+    for name in text_files:
         path = ROOT / name
         if path.read_bytes() != files[name]:
             path.write_bytes(files[name])

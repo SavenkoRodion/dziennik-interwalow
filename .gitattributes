@@ -1,4 +1,6 @@
 index.html text eol=lf
+styles.css text eol=lf
+js/** text eol=lf
 manifest.webmanifest text eol=lf
 sw.js text eol=lf
 icons/*.png binary
